@@ -1,0 +1,47 @@
+{
+  "name": "supernova-lockdrop",
+  "version": "1.0.0",
+  "description": "Scripts for supernova lockdrop",
+  "main": "dist/index.js",
+  "repository": "https://github.com/hicommonwealth/supernova-lockdrop.git",
+  "author": "hello@commonwealth.im",
+  "license": "GPL-3.0",
+  "bin": {
+    "edge": "./bin/edge"
+  },
+  "preferGlobal": true,
+  "files": [
+    "src/",
+    "bin/"
+  ],
+  "dependencies": {
+    "@babel/runtime": "^7.6.0",
+    "@types/filesystem": "^0.0.29",
+    "bclient": "^0.1.7",
+    "bcoin": "^1.0.2",
+    "bledger": "^0.3.0",
+    "commander": "^3.0.1",
+    "dotenv": "^8.1.0",
+    "edgeware-node-types": "1.0.10",
+    "ts-node": "^7.0.1"
+  },
+  "scripts": {
+    "lint": "tslint -c tslint.json 'src/**/*.ts'",
+    "build": "./node_modules/.bin/babel src -d dist",
+    "start": "yarn build && node ./dist/index.js"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.6.0",
+    "@babel/core": "^7.6.0",
+    "@babel/plugin-transform-runtime": "^7.6.0",
+    "@babel/preset-env": "^7.6.0",
+    "@types/chai": "^4.1.7",
+    "@types/mocha": "^5.2.5",
+    "chai": "^4.2.0",
+    "mocha": "^5.2.0",
+    "reflect-metadata": "^0.1.12",
+    "tslint": "^5.12.0",
+    "typescript": "^3.2.2",
+    "typings": "^2.1.1"
+  }
+}
