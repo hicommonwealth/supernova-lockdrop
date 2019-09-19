@@ -20,15 +20,22 @@
     "bclient": "^0.1.7",
     "bcoin": "^1.0.2",
     "bledger": "^0.3.0",
+    "chalk": "^2.4.2",
     "commander": "^3.0.1",
     "dotenv": "^8.1.0",
     "edgeware-node-types": "1.0.10",
-    "ts-node": "^7.0.1"
+    "ethereumjs-tx": "^2.1.1",
+    "truffle-hdwallet-provider": "^1.0.17",
+    "ts-node": "^7.0.1",
+    "web3": "^1.2.1"
   },
   "scripts": {
     "lint": "tslint -c tslint.json 'src/**/*.ts'",
     "build": "./node_modules/.bin/babel src -d dist",
-    "start": "yarn build && node ./dist/index.js"
+    "start": "yarn build && node ./dist/index.js --help",
+    "lock-atom": "yarn build && node ./dist/index.js atom lock",
+    "lock-btc": "yarn build && node ./dist/index.js btc lock",
+    "lock-eth": "yarn build && node ./dist/index.js eth lock"
   },
   "devDependencies": {
     "@babel/cli": "^7.6.0",
