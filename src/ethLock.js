@@ -5,12 +5,11 @@ const EthereumTx = require('ethereumjs-tx');
 
 const LOCKDROP_JSON = JSON.parse(fs.readFileSync('./eth/build/contracts/Lockdrop.json').toString());
 const LOCKDROP_CONTRACT_ADDRESS = process.env.LOCKDROP_CONTRACT_ADDRESS;
-const COSMOS_ADDRESS = process.env.COSMOS_ADDRESS;
 const ETH_PRIVATE_KEY = process.env.ETH_PRIVATE_KEY;
 const INFURA_PATH = process.env.INFURA_PATH;
 const LOCALHOST_URL = 'http://localhost:8545';
 
-function getWeb3(remoteUrl) {
+export function getWeb3(remoteUrl) {
   let provider;
   if (ETH_PRIVATE_KEY) {
     provider = new HDWalletProvider(ETH_PRIVATE_KEY, remoteUrl);
@@ -21,7 +20,7 @@ function getWeb3(remoteUrl) {
   return web3;
 }
 
-async function lock(length, amount, comsosAddress, remoteUrl=LOCALHOST_URL) {
+export async function lock(length, amount, comsosAddress, remoteUrl=LOCALHOST_URL) {
   console.log(`locking ${value} ether into Lockdrop contract for ${length} months. Receiver: ${comsosAddress}`);
   console.log(`Contract ${LOCKDROP_CONTRACT_ADDRESS}`);
   const web3 = getWeb3(remoteUrl);
