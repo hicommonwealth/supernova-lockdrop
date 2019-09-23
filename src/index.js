@@ -9,6 +9,9 @@ import * as atom from './atomLock';
 import * as btc from './btcLock';
 import * as eth from './ethLock';
 
+// 1 month lock
+const LOCK_LENGTH = 31;
+
 const error = chalk.bold.red;
 const warning = chalk.keyword('orange');
 
@@ -44,9 +47,11 @@ program.version(version)
     switch (protocol) {
       case 'eth' | 'ethereum' | 'ETH':
         console.log(`Using the Supernova Lockdrop CLI ${msg} Ethereum`);
+        await eth.lock(LOCK_LENGTH, 1, '0x01');
         break;
       case 'btc' | 'bitcoin' | 'BTC':
         console.log(`Using the Supernova Lockdrop CLI ${msg} Bitcoin`);
+        await btc.lock(LOCK_LENGTH, 1, '0x01');
         break;
       case 'atom' | 'cosmos':
         console.log(`Using the Supernova Lockdrop CLI ${msg} Atom/Cosmos`);

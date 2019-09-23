@@ -1,6 +1,32 @@
 import bitcoin from 'bitcoinjs-lib';
+import bip65 from 'bip65';
 
 const BTC_PRIVATE_KEY_WIF = process.env.BTC_PRIVATE_KEY_WIF;
+
+/**
+ * Lock BTC up in a CTLV P2SH transaction
+ *
+ * @param      {number}  length                The length in days
+ * @param      {number}  amount                The amount of BTC to lock up
+ * @param      {<type>}  comsosAddress         The comsos address
+ * @param      {<type>}  [unspentOutput=None]  The unspent output
+ * @param      {<type>}  [network=None]        The network
+ */
+export const lock = async (length, amount, comsosAddress, unspentOutput=None, network=None) => {
+  if (!network) {
+    network = bitcoin.networks.regtest;
+  }
+
+  if (!unspentOutput) {
+    return;
+  }
+
+  const lockTime = bip65.encode({utc: Math.floor(Date.now() / 1000) + (3600 * 24 * length)});
+};
+
+export const generateKeypair = () => {
+  return bitcoin.ECPair.makeRandom();
+};
 
 export const createScript = (lockTime, publicKey) => {
   return bitcoin.script.fromASM(`
@@ -15,26 +41,43 @@ export const createScript = (lockTime, publicKey) => {
   `.trim().replace(/\s+/g, ' '))
 }
 
-export async function lock(unspentOutput, length, amount, comsosAddress, network) {
+export async function createlockTx(length, amount, comsosAddress, unspentOutput, network) {
   const hashType = bitcoin.Transaction.SIGHASH_ALL;
   const key = bitcoin.ECPair.fromWIF(BTC_PRIVATE_KEY_WIF);
-  const data = new Buffer(`${comsosAddress}`);
   const lockTime = length;
   const redeemScript = createScript(lockTime, key.publicKey);
   const { address } = bitcoin.payments.p2sh({
     redeem: {
       output: redeemScript,
-      network: regtest
+      network: network
     },
-    network: regtest
+    network: network
   });
 
-  const txb = new bitcoin.TransactionBuilder(regtest)
-  txb.addInput(unspent.txId, unspent.vout, 0xfffffffe)
-  // Amount in satoshis
-  txb.addOutput(address, amount)
-  const tx = txb.buildIncomplete()
-  const signatureHash = tx.hashForSignature(0, redeemScript, hashType)
+  const txb = new bitcoin.TransactionBuilder(network);
+  txb.addInput(unspent.txId, unspent.vout, 0xfffffffe);
+  // Send amount of satoshis to the P2SH time lock transaction
+  txb.addOutput(address, amount);
+  // Add OP_RETURN data field with IPFS hash
+  // OP_RETURN always with 0 value unless you want to burn coins
+  const data = new Buffer(`${comsosAddress}`);
+  const dataScript = bitcoin.payments.embed({ data: [data] });
+  txb.addOutput(dataScript.output, 0);
+  const tx = txb.buildIncomplete();
+  const signatureHash = tx.hashForSignature(0, redeemScript, hashType);
+  txb.sign(0, keyPair);
+
+  const txRaw = txb.build();
+  const txHex = txRaw.toHex();
+  // Return tx hex
+  return txHex;
+}
+
+export async function createUnlockTx(redeemScript, network) {
+  const txb = new bitcoin.TransactionBuilder(network);
+  txb.addInput(unspent.txId, unspent.vout, 0xfffffffe);
+  const tx = txb.buildIncomplete();
+  const signatureHash = tx.hashForSignature(0, redeemScript, hashType);
   const redeemScriptSig = bitcoin.payments.p2sh({
     redeem: {
       input: bitcoin.script.compile([
@@ -45,15 +88,9 @@ export async function lock(unspentOutput, length, amount, comsosAddress, network
       network: network,
     },
     network: network,
-  }).input
+  }).input;
   tx.setInputScript(0, redeemScriptSig)
-
-  await regtestUtils.broadcast(tx.toHex())
-
-  await regtestUtils.verify({
-    txId: tx.getId(),
-    address: regtestUtils.RANDOM_ADDRESS,
-    vout: 0,
-    value: 7e4
-  })
+  const txHex = tx.toHex();
+  // Return tx hex
+  return txHex;
 }

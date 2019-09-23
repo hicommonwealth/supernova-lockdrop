@@ -46,8 +46,7 @@ contract Lockdrop {
     /**
      * @dev        Locks up the value sent to contract in a new Lock
      * @param      term         The length of the lock up
-     * @param      edgewareAddr The bytes representation of the target edgeware key
-     * @param      isValidator  Indicates if sender wishes to be a validator
+     * @param      cosmosAddr   The bytes representation of the target cosmos key
      */
     function lock(Term term, bytes calldata cosmosAddr)
         external
@@ -59,7 +58,7 @@ contract Lockdrop {
         Lock lockAddr = (new Lock).value(msg.value)(msg.sender, unlockTimeForTerm(term));
         // ensure lock contract has at least all the ETH, or fail
         assert(address(lockAddr).balance >= msg.value);
-        emit Locked(owner, msg.value, lockAddr, term, cosmosAddr, now);
+        emit Locked(msg.sender, msg.value, lockAddr, term, cosmosAddr, now);
     }
 
     function unlockTimeForTerm(Term term) internal view returns (uint256) {

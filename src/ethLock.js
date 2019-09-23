@@ -1,8 +1,9 @@
-const Web3 = require('web3');
-const { toBN, fromWei } = require('web3').utils;
-const HDWalletProvider = require("truffle-hdwallet-provider");
-const EthereumTx = require('ethereumjs-tx');
+import Web3, { utils } from 'web3';
+import HDWalletProvider from "truffle-hdwallet-provider";
+import EthereumTx from 'ethereumjs-tx';
+import fs from 'fs';
 
+const { toBN, fromWei } = utils;
 const LOCKDROP_JSON = JSON.parse(fs.readFileSync('./eth/build/contracts/Lockdrop.json').toString());
 const LOCKDROP_CONTRACT_ADDRESS = process.env.LOCKDROP_CONTRACT_ADDRESS;
 const ETH_PRIVATE_KEY = process.env.ETH_PRIVATE_KEY;
