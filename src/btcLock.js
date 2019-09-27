@@ -1,9 +1,8 @@
-import bitcoin from 'bitcoinjs-lib';
+const bitcoin = require('bitcoinjs-lib');
 import bip65 from 'bip65';
 import bip39 from 'bip39';
 import bip38 from 'bip38';
 import wif from 'wif';
-
 
 /**
  * Helper class for storing content in IPFS
@@ -23,19 +22,28 @@ class BtcIPFSLockdropContent {
  * @param      {number}  length                The length in days
  * @param      {number}  amount                The amount of BTC to lock up
  * @param      {string}  comsosAddress         The comsos address
- * @param      {object}  [unspentOutput=None]  The unspent output
+ * @param      {object}  [unspentOutputs=None] The unspent output
  * @param      {object}  [network=None]        The network
  */
-export const lock = async (length, amount, comsosAddress, unspentOutput=None, network=None) => {
+export const lock = async (keyWIF, length, amount, comsosAddress, unspentOutputs, changeAddress, changeAmount, network) => {
   if (!network) {
     network = bitcoin.networks.regtest;
   }
 
-  if (!unspentOutput) {
+  if (!unspentOutputs) {
     return;
   }
 
   const lockTime = bip65.encode({utc: Math.floor(Date.now() / 1000) + (3600 * 24 * length)});
+  const lockTxHex = createlockTx(
+    keyWIF,
+    lockTime,
+    amount,
+    comsosAddress,
+    unspentOutputs,
+    changeAddress,
+    changeAmount,
+    network);
 };
 
 export const createScript = (lockTime, publicKey) => {
@@ -51,11 +59,14 @@ export const createScript = (lockTime, publicKey) => {
   `.trim().replace(/\s+/g, ' '))
 }
 
-export async function createlockTx(keyWIF, length, amount, comsosAddress, unspentOutput, network) {
-  const key = bitcoin.ECPair.fromWIF(keyWIF);
+export async function createlockTx(keyWIF, locktime, amount, comsosAddress, unspentOutputs, changeAddress, changeAmount, network) {
+  console.log(keyWIF)
+  const key = bitcoin.ECPair.fromWIF(keyWIF, network);
+  console.log(key);
   const hashType = bitcoin.Transaction.SIGHASH_ALL;
-  const lockTime = length;
-  const redeemScript = createScript(lockTime, key.publicKey);
+  console.log(key, hashType);
+  const redeemScript = createScript(locktime, key.publicKey);
+  console.log('here')
   const { address } = bitcoin.payments.p2sh({
     redeem: {
       output: redeemScript,
@@ -65,9 +76,13 @@ export async function createlockTx(keyWIF, length, amount, comsosAddress, unspen
   });
 
   const txb = new bitcoin.TransactionBuilder(network);
-  txb.addInput(unspent.txId, unspent.vout, 0xfffffffe);
+  unspentOutputs.forEach(output => {
+    let splitOutput = output.split('-');
+    txb.addInput(splitOutput[0], Number(splitOutput[1]), 0xfffffffe);
+  });
   // Send amount of satoshis to the P2SH time lock transaction
   txb.addOutput(address, amount);
+  txb.addOutput(changeAddress, changeAmount)
   // Add OP_RETURN data field with IPFS hash
   // OP_RETURN always with 0 value unless you want to burn coins
   const data = new Buffer(`${comsosAddress}`);
@@ -75,9 +90,9 @@ export async function createlockTx(keyWIF, length, amount, comsosAddress, unspen
   txb.addOutput(dataScript.output, 0);
   const tx = txb.buildIncomplete();
   const signatureHash = tx.hashForSignature(0, redeemScript, hashType);
-  txb.sign(0, key);
+  tx.sign(0, key);
 
-  const txRaw = txb.build();
+  const txRaw = tx.build();
   const txHex = txRaw.toHex();
   // Return tx hex
   return txHex;
@@ -105,7 +120,7 @@ export async function createUnlockTx(redeemScript, network) {
   return txHex;
 }
 
-export const getPrivateKeyWIFFromEnvVar(rawWIF, mnemonic, derivationPath, keystorePath, password) {
+export const getPrivateKeyWIFFromEnvVar = (rawWIF, mnemonic, derivationPath, keystorePath, password) => {
   if (rawWIF) return rawWIF;
   if (mnemonic) {
     if (typeof derivationPath === 'undefined') throw new Error('Please specify a derivation path for BIP32 HD keys');
@@ -131,3 +146,16 @@ export const generateNewMnemonicKeypair = () => {
 export const generateNewECPairKeypair = () => {
   return bitcoin.ECPair.makeRandom().toWIF();
 };
+
+export const getNetworkSetting = (network) => {
+  switch (network) {
+    case 'regtest':
+      return bitcoin.networks.regtest;
+    case 'testnet':
+      return bitcoin.networks.testnet
+    case 'mainnet':
+      return bitcoin.networks.bitcoin;
+    default:
+      return bitcoin.networks.bitcoin;
+  }
+}

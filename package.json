@@ -19,6 +19,7 @@
     "@types/filesystem": "^0.0.29",
     "bclient": "^0.1.7",
     "bcoin": "^1.0.2",
+    "bip38": "^3.0.0",
     "bip39": "^3.0.2",
     "bip65": "^1.0.3",
     "bitcoinjs-lib": "^5.1.6",

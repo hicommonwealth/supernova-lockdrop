@@ -18,6 +18,10 @@ const BTC_BIP38_KEY_PATH = process.env.BTC_BIP38_KEY_PATH;
 const BTC_BIP38_PASSWORD = process.env.BTC_BIP38_PASSWORD;
 const BTC_BIP39_MNEMONIC_SEED = process.env.BTC_BIP39_MNEMONIC_SEED;
 const BTC_BIP32_DERIVATION_PATH = process.env.BTC_BIP32_DERIVATION_PATH;
+const BTC_UTXOS = process.env.BTC_UTXOS.split(',');
+const BTC_NETWORK_SETTING = process.env.BITCOIN_NETWORK_SETTING || 'regtest';
+const BTC_CHANGE_ADDRESS = process.env.BTC_CHANGE_ADDRESS;
+const BTC_CHANGE_AMOUNT = process.env.BTC_CHANGE_AMOUNT;
 // IPFS multiaddr
 const IPFS_REMOTE_URL = process.env.IPFS_REMOTE_URL;
 // Ethereum constants
@@ -38,14 +42,13 @@ program.version(version)
   .usage('<protocol> <function> [ARGS...]')
   .arguments('<protocol> <func> [args...]')
   .action(async (protocol, func, args) => {
+    console.log(`Protocol: ${protocol}, function: ${func}, args: ${args}`)
     const isLock = (func === 'lock');
     const msg = `${(isLock) ? 'to lock on' : 'to query the lockdrop on'}`;
 
     // If isLock, then the arguments should be <protocol> lock <length> <amount>
     if (isLock) {
-      const cmd = (protocol === 'eth' || protocol === 'ethereum' || protocol === 'ETH') ? 'lock-eth'
-        : (protocol === 'btc' || protocol === 'bitcoin' || protocol === 'BTC') ? 'lock-btc'
-          : 'lock-atom';
+      const cmd = (protocol === 'eth') ? 'lock-eth' : 'lock-btc';
       const wrongArgsMsg = `${error.underline('You must provide both length and amount arguments such as ')}${warning.underline(`yarn ${cmd} 10 10`)}${error.underline('!')}`;
       const lengthErrorMsg = `${error.underline(`Length "${args[0]}" is not properly formatted, you must submit a number such as `)}${warning.underline(`yarn ${cmd} 10 10`)}${error.underline('!')}`;
       const amountErrorMsg = `${error.underline(`Amount "${args[1]}" is not properly formatted, you must submit a number such as `)}${warning.underline(`yarn ${cmd} 10 10`)}${error.underline('!')}`;
@@ -55,7 +58,7 @@ program.version(version)
     }
 
     switch (protocol) {
-      case 'eth' | 'ethereum' | 'ETH':
+      case 'eth':
         console.log(`Using the Supernova Lockdrop CLI ${msg} Ethereum`);
         if (typeof ETH_PRIVATE_KEY === 'undefined' && typeof ETH_KEY_PATH === 'undefined') {
           printNoKeyError('ensure your Ethereum key is formatted under ETH_PRIVATE_KEY or stored as a keystore file under ETH_KEY_PATH');
@@ -65,14 +68,16 @@ program.version(version)
           await eth.lock(key, LOCK_LENGTH, 1, '0x01', remoteUrl=INFURA_PATH);
         }
         break;
-      case 'btc' | 'bitcoin' | 'BTC':
+      case 'btc':
         console.log(`Using the Supernova Lockdrop CLI ${msg} Bitcoin`);
         if (typeof BTC_PRIVATE_KEY_WIF === 'undefined' && typeof BTC_BIP38_KEY_PATH === 'undefined' && typeof BTC_BIP39_MNEMONIC_SEED === 'undefined') {
           printNoKeyError('ensure your Ethereum key is formatted under BTC_PRIVATE_KEY_WIF, BTC_BIP39_MNEMONIC_SEED, or stored as a keystore file under BTC_BIP38_KEY_PATH');
           process.exit(1);
         } else {
           const key = getBitcoinKeyFromEnvVar();
-          await btc.lock(key, LOCK_LENGTH, 1, '0x01');
+          const network = btc.getNetworkSetting(BTC_NETWORK_SETTING);
+          const changeAddress = BTC_CHANGE_ADDRESS;
+          await btc.lock(key, LOCK_LENGTH, 1, '0x01', BTC_UTXOS, network);
         }
         break;
       default:
@@ -119,7 +124,7 @@ function printNoKeyError(customMsg) {
 
 function getEthereumKeyFromEnvVar() {
   return (ETH_PRIVATE_KEY)
-    ? eth.getPrivateKeyFromEnvVar(ETH_PRIVATE_KEY);
+    ? eth.getPrivateKeyFromEnvVar(ETH_PRIVATE_KEY)
     : eth.getPrivateKeyFromEncryptedJson(
         ETH_KEY_PATH,
         ETH_JSON_VERSION,
