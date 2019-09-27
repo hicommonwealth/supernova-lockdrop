@@ -16,6 +16,10 @@ class BtcIPFSLockdropContent {
   }
 }
 
+function idToHash(txid) {
+  return Buffer.from(txid, 'hex').reverse();
+}
+
 /**
  * Lock BTC up in a CTLV P2SH transaction
  *
@@ -59,7 +63,7 @@ export const createScript = (lockTime, publicKey) => {
   `.trim().replace(/\s+/g, ' '))
 }
 
-export async function createlockTx(keyWIF, locktime, amount, comsosAddress, unspentOutputs, changeAddress, changeAmount, network) {
+export async function createlockTx(keyWIF, locktime, amount, comsosAddress, unspentOutputs, network, changeAddress=undefined, changeAmount=undefined) {
   console.log(keyWIF)
   const key = bitcoin.ECPair.fromWIF(keyWIF, network);
   console.log(key);
@@ -75,33 +79,39 @@ export async function createlockTx(keyWIF, locktime, amount, comsosAddress, unsp
     network: network
   });
 
-  const txb = new bitcoin.TransactionBuilder(network);
+  const psbt = new bitcoin.Psbt();
+  console.log(unspentOutputs)
   unspentOutputs.forEach(output => {
-    let splitOutput = output.split('-');
-    txb.addInput(splitOutput[0], Number(splitOutput[1]), 0xfffffffe);
+    if (output.length > 0) {
+      let splitOutput = output.split('-');
+      psbt.addInput(idToHash(splitOutput[0]), Number(splitOutput[1]), 0xfffffffe);
+    }
   });
   // Send amount of satoshis to the P2SH time lock transaction
-  txb.addOutput(address, amount);
-  txb.addOutput(changeAddress, changeAmount)
+  console.log('heree', address, Number(amount))
+  psbt.addOutput(address, amount);
+  // Add change address output if exists
+  if (changeAddress && changeAddress) {
+    console.log('test');
+    psbt.addOutput(changeAddress, changeAmount);
+  }
   // Add OP_RETURN data field with IPFS hash
   // OP_RETURN always with 0 value unless you want to burn coins
   const data = new Buffer(`${comsosAddress}`);
   const dataScript = bitcoin.payments.embed({ data: [data] });
-  txb.addOutput(dataScript.output, 0);
-  const tx = txb.buildIncomplete();
-  const signatureHash = tx.hashForSignature(0, redeemScript, hashType);
-  tx.sign(0, key);
-
-  const txRaw = tx.build();
-  const txHex = txRaw.toHex();
+  console.log('OP');
+  psbt.addOutput(dataScript.output, 0);
+  console.log('RETURN');
+  psbt.signInput(0, key);
+  psbt.validateSignaturesOfInput(0);
+  psbt.finalizeAllInputs();
   // Return tx hex
-  return txHex;
+  return psbt.extractTransaction().toHex();
 }
 
-export async function createUnlockTx(redeemScript, network) {
-  const txb = new bitcoin.TransactionBuilder(network);
-  txb.addInput(unspent.txId, unspent.vout, 0xfffffffe);
-  const tx = txb.buildIncomplete();
+export async function createUnlockTx(redeemScript, unspent, network) {
+  const tx = new bitcoin.Transaction();
+  tx.addInput(idToHash(unspent.txId), unspent.vout, 0xfffffffe);
   const signatureHash = tx.hashForSignature(0, redeemScript, hashType);
   const redeemScriptSig = bitcoin.payments.p2sh({
     redeem: {

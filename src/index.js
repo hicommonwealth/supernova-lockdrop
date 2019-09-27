@@ -65,7 +65,7 @@ program.version(version)
           process.exit(1);
         } else {
           const key = getEthereumKeyFromEnvVar();
-          await eth.lock(key, LOCK_LENGTH, 1, '0x01', remoteUrl=INFURA_PATH);
+          await eth.lock(key, args[0], args[1], '0x01', remoteUrl=INFURA_PATH);
         }
         break;
       case 'btc':
@@ -77,7 +77,7 @@ program.version(version)
           const key = getBitcoinKeyFromEnvVar();
           const network = btc.getNetworkSetting(BTC_NETWORK_SETTING);
           const changeAddress = BTC_CHANGE_ADDRESS;
-          await btc.lock(key, LOCK_LENGTH, 1, '0x01', BTC_UTXOS, network);
+          await btc.lock(key, args[0], args[1], '0x01', BTC_UTXOS, network);
         }
         break;
       default:
@@ -87,7 +87,7 @@ program.version(version)
           process.exit(1);
         } else {
           const key = getEthereumKeyFromEnvVar();
-          await eth.lock(key, LOCK_LENGTH, 1, '0x01', remoteUrl=INFURA_PATH);
+          await eth.lock(key, args[0], args[1], '0x01', remoteUrl=INFURA_PATH);
         }
         break;
     }
