@@ -108,22 +108,20 @@ export async function createUnlockTx(redeemScript, network) {
 export const getPrivateKeyWIFFromEnvVar(rawWIF, mnemonic, derivationPath, keystorePath, password) {
   if (rawWIF) return rawWIF;
   if (mnemonic) {
-    if (typeof derivationPath === 'undefined') {
-      throw new Error('Please specify a derivation path for BIP32 HD keys');
-    } else {
-      const seed = bip39.mnemonicToSeedSync(mnemonic);
-      const node = bip32.fromSeed(seed);
-      return node.toWIF();
-    }
+    if (typeof derivationPath === 'undefined') throw new Error('Please specify a derivation path for BIP32 HD keys');
+    const seed = bip39.mnemonicToSeedSync(mnemonic);
+    const node = bip32.fromSeed(seed);
+    return node.toWIF();
   }
 
   if (keystorePath) {
+    if (typeof password === 'undefined') throw new new Error('Please specify a decryption password for the keystore data');
     const encryptedKey = fs.readFileSync(keystorePath, 'utf8');
-    const decryptedKey = bip38.decrypt(encryptedKey, password, function (status) {
-      console.log(status.percent) // will print the percent every time current increases by 1000
-    });
+    const decryptedKey = bip38.decrypt(encryptedKey, password, function (status) { console.log(status.percent) });
     return wif.encode(0x80, decryptedKey.privateKey, decryptedKey.compressed)
   }
+
+  throw new Error('No valid BTC key information was provided, please run the CLI with `--help`');
 }
 
 export const generateNewMnemonicKeypair = () => {

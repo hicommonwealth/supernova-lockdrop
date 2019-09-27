@@ -68,7 +68,7 @@ program.version(version)
       case 'btc' | 'bitcoin' | 'BTC':
         console.log(`Using the Supernova Lockdrop CLI ${msg} Bitcoin`);
         if (typeof BTC_PRIVATE_KEY_WIF === 'undefined' && typeof BTC_BIP38_KEY_PATH === 'undefined' && typeof BTC_BIP39_MNEMONIC_SEED === 'undefined') {
-          printNoKeyError('ensure your Ethereum key is formatted under BTC_PRIVATE_KEY_WIF, BTC_BIP39_MNEMONIC_SEED, or stored as a keystore file under BTC _KEY_PATH');
+          printNoKeyError('ensure your Ethereum key is formatted under BTC_PRIVATE_KEY_WIF, BTC_BIP39_MNEMONIC_SEED, or stored as a keystore file under BTC_BIP38_KEY_PATH');
           process.exit(1);
         } else {
           const key = getBitcoinKeyFromEnvVar();
@@ -112,7 +112,7 @@ function assert(condition, message) {
 
 function printNoKeyError(customMsg) {
   console.log('');
-  console.log(`\t${error.underline('You must provide a private key seed as a CLI argument or as environment variable!')}`);
+  console.log(`\t${error.underline('You must provide a private key as an environment variable!')}`);
   console.log(`\t${error.underline(`If you use an environment variable, ${customMsg}`)}`)
   console.log('');
 }
@@ -131,5 +131,6 @@ function getBitcoinKeyFromEnvVar() {
     BTC_PRIVATE_KEY_WIF,
     BTC_BIP39_MNEMONIC_SEED,
     BTC_BIP32_DERIVATION_PATH,
-    BTC_BIP38_KEY_PATH);
+    BTC_BIP38_KEY_PATH,
+    BTC_BIP38_PASSWORD);
 }
