@@ -1,16 +1,30 @@
 import bitcoin from 'bitcoinjs-lib';
 import bip65 from 'bip65';
+import bip39 from 'bip39';
+import bip38 from 'bip38';
+import wif from 'wif';
 
-const BTC_PRIVATE_KEY_WIF = process.env.BTC_PRIVATE_KEY_WIF;
+
+/**
+ * Helper class for storing content in IPFS
+ *
+ * @class      BtcIPFSLockdropContent Content format wrapper
+ */
+class BtcIPFSLockdropContent {
+  constructor(timeLockScript, comsosAddress) {
+    self.timeLockScript = timeLockScript;
+    self.comsosAddress = comsosAddress;
+  }
+}
 
 /**
  * Lock BTC up in a CTLV P2SH transaction
  *
  * @param      {number}  length                The length in days
  * @param      {number}  amount                The amount of BTC to lock up
- * @param      {<type>}  comsosAddress         The comsos address
- * @param      {<type>}  [unspentOutput=None]  The unspent output
- * @param      {<type>}  [network=None]        The network
+ * @param      {string}  comsosAddress         The comsos address
+ * @param      {object}  [unspentOutput=None]  The unspent output
+ * @param      {object}  [network=None]        The network
  */
 export const lock = async (length, amount, comsosAddress, unspentOutput=None, network=None) => {
   if (!network) {
@@ -22,10 +36,6 @@ export const lock = async (length, amount, comsosAddress, unspentOutput=None, ne
   }
 
   const lockTime = bip65.encode({utc: Math.floor(Date.now() / 1000) + (3600 * 24 * length)});
-};
-
-export const generateKeypair = () => {
-  return bitcoin.ECPair.makeRandom();
 };
 
 export const createScript = (lockTime, publicKey) => {
@@ -41,9 +51,9 @@ export const createScript = (lockTime, publicKey) => {
   `.trim().replace(/\s+/g, ' '))
 }
 
-export async function createlockTx(length, amount, comsosAddress, unspentOutput, network) {
+export async function createlockTx(keyWIF, length, amount, comsosAddress, unspentOutput, network) {
+  const key = bitcoin.ECPair.fromWIF(keyWIF);
   const hashType = bitcoin.Transaction.SIGHASH_ALL;
-  const key = bitcoin.ECPair.fromWIF(BTC_PRIVATE_KEY_WIF);
   const lockTime = length;
   const redeemScript = createScript(lockTime, key.publicKey);
   const { address } = bitcoin.payments.p2sh({
@@ -65,7 +75,7 @@ export async function createlockTx(length, amount, comsosAddress, unspentOutput,
   txb.addOutput(dataScript.output, 0);
   const tx = txb.buildIncomplete();
   const signatureHash = tx.hashForSignature(0, redeemScript, hashType);
-  txb.sign(0, keyPair);
+  txb.sign(0, key);
 
   const txRaw = txb.build();
   const txHex = txRaw.toHex();
@@ -94,3 +104,32 @@ export async function createUnlockTx(redeemScript, network) {
   // Return tx hex
   return txHex;
 }
+
+export const getPrivateKeyWIFFromEnvVar(rawWIF, mnemonic, derivationPath, keystorePath, password) {
+  if (rawWIF) return rawWIF;
+  if (mnemonic) {
+    if (typeof derivationPath === 'undefined') {
+      throw new Error('Please specify a derivation path for BIP32 HD keys');
+    } else {
+      const seed = bip39.mnemonicToSeedSync(mnemonic);
+      const node = bip32.fromSeed(seed);
+      return node.toWIF();
+    }
+  }
+
+  if (keystorePath) {
+    const encryptedKey = fs.readFileSync(keystorePath, 'utf8');
+    const decryptedKey = bip38.decrypt(encryptedKey, password, function (status) {
+      console.log(status.percent) // will print the percent every time current increases by 1000
+    });
+    return wif.encode(0x80, decryptedKey.privateKey, decryptedKey.compressed)
+  }
+}
+
+export const generateNewMnemonicKeypair = () => {
+  return bip39.generateMnemonic();
+}
+
+export const generateNewECPairKeypair = () => {
+  return bitcoin.ECPair.makeRandom().toWIF();
+};

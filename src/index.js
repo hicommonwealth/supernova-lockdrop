@@ -8,10 +8,27 @@ import { version } from '../package.json';
 import * as atom from './atomLock';
 import * as btc from './btcLock';
 import * as eth from './ethLock';
+import * as ipfsUtil from './ipfsUtil';
 
-// 1 month lock
-const LOCK_LENGTH = 31;
-
+// CLI Constants
+const LOCK_LENGTH = 31; // 31 days
+// Bitcoin
+const BTC_PRIVATE_KEY_WIF = process.env.BTC_PRIVATE_KEY_WIF;
+const BTC_BIP38_KEY_PATH = process.env.BTC_BIP38_KEY_PATH;
+const BTC_BIP38_PASSWORD = process.env.BTC_BIP38_PASSWORD;
+const BTC_BIP39_MNEMONIC_SEED = process.env.BTC_BIP39_MNEMONIC_SEED;
+const BTC_BIP32_DERIVATION_PATH = process.env.BTC_BIP32_DERIVATION_PATH;
+// IPFS multiaddr
+const IPFS_REMOTE_URL = process.env.IPFS_REMOTE_URL;
+// Ethereum constants
+const LOCKDROP_CONTRACT_ADDRESS = process.env.LOCKDROP_CONTRACT_ADDRESS;
+const ETH_PRIVATE_KEY = process.env.ETH_PRIVATE_KEY;
+const ETH_KEY_PATH = process.env.ETH_KEY_PATH;
+const ETH_JSON_PASSWORD = process.env.ETH_JSON_PASSWORD;
+const ETH_JSON_VERSION = process.env.ETH_JSON_VERSION;
+// Infura API url
+const INFURA_PATH = process.env.INFURA_PATH;
+// Stdout coloring
 const error = chalk.bold.red;
 const warning = chalk.keyword('orange');
 
@@ -21,13 +38,6 @@ program.version(version)
   .usage('<protocol> <function> [ARGS...]')
   .arguments('<protocol> <func> [args...]')
   .action(async (protocol, func, args) => {
-    if (typeof program.seed === 'undefined' && typeof process.env.SEED === 'undefined') {
-      console.log('');
-      console.log(`\t${error.underline('You must provide a private key seed as a CLI argument or as environment variable!')}`);
-      console.log('');
-      return;
-    }
-
     const isLock = (func === 'lock');
     const msg = `${(isLock) ? 'to lock on' : 'to query the lockdrop on'}`;
 
@@ -36,9 +46,9 @@ program.version(version)
       const cmd = (protocol === 'eth' || protocol === 'ethereum' || protocol === 'ETH') ? 'lock-eth'
         : (protocol === 'btc' || protocol === 'bitcoin' || protocol === 'BTC') ? 'lock-btc'
           : 'lock-atom';
-      const wrongArgsMsg = `${error.underline('You must provide both length and amount arguments such as ')}${warning.underline(`yarn ${cmd} 10 10 -s <seed>`)}${error.underline('!')}`;
-      const lengthErrorMsg = `${error.underline(`Length "${args[0]}" is not properly formatted, you must submit a number such as `)}${warning.underline(`yarn ${cmd} 10 10 -s <seed>`)}${error.underline('!')}`;
-      const amountErrorMsg = `${error.underline(`Amount "${args[1]}" is not properly formatted, you must submit a number such as `)}${warning.underline(`yarn ${cmd} 10 10 -s <seed>`)}${error.underline('!')}`;
+      const wrongArgsMsg = `${error.underline('You must provide both length and amount arguments such as ')}${warning.underline(`yarn ${cmd} 10 10`)}${error.underline('!')}`;
+      const lengthErrorMsg = `${error.underline(`Length "${args[0]}" is not properly formatted, you must submit a number such as `)}${warning.underline(`yarn ${cmd} 10 10`)}${error.underline('!')}`;
+      const amountErrorMsg = `${error.underline(`Amount "${args[1]}" is not properly formatted, you must submit a number such as `)}${warning.underline(`yarn ${cmd} 10 10`)}${error.underline('!')}`;
       assert(args.length === 2, wrongArgsMsg);
       assert(!Number.isNaN(Number(args[0])), lengthErrorMsg);
       assert(!Number.isNaN(Number(args[1])), amountErrorMsg);
@@ -47,21 +57,36 @@ program.version(version)
     switch (protocol) {
       case 'eth' | 'ethereum' | 'ETH':
         console.log(`Using the Supernova Lockdrop CLI ${msg} Ethereum`);
-        await eth.lock(LOCK_LENGTH, 1, '0x01');
+        if (typeof ETH_PRIVATE_KEY === 'undefined' && typeof ETH_KEY_PATH === 'undefined') {
+          printNoKeyError('ensure your Ethereum key is formatted under ETH_PRIVATE_KEY or stored as a keystore file under ETH_KEY_PATH');
+          process.exit(1);
+        } else {
+          const key = getEthereumKeyFromEnvVar();
+          await eth.lock(key, LOCK_LENGTH, 1, '0x01', remoteUrl=INFURA_PATH);
+        }
         break;
       case 'btc' | 'bitcoin' | 'BTC':
         console.log(`Using the Supernova Lockdrop CLI ${msg} Bitcoin`);
-        await btc.lock(LOCK_LENGTH, 1, '0x01');
-        break;
-      case 'atom' | 'cosmos':
-        console.log(`Using the Supernova Lockdrop CLI ${msg} Atom/Cosmos`);
+        if (typeof BTC_PRIVATE_KEY_WIF === 'undefined' && typeof BTC_BIP38_KEY_PATH === 'undefined' && typeof BTC_BIP39_MNEMONIC_SEED === 'undefined') {
+          printNoKeyError('ensure your Ethereum key is formatted under BTC_PRIVATE_KEY_WIF, BTC_BIP39_MNEMONIC_SEED, or stored as a keystore file under BTC _KEY_PATH');
+          process.exit(1);
+        } else {
+          const key = getBitcoinKeyFromEnvVar();
+          await btc.lock(key, LOCK_LENGTH, 1, '0x01');
+        }
         break;
       default:
         console.log(`Using the Supernova Lockdrop CLI ${msg} Ethereum`);
+        if (typeof ETH_PRIVATE_KEY === 'undefined' && typeof ETH_KEY_PATH === 'undefined') {
+          printNoKeyError('ensure your Ethereum key is formatted under ETH_PRIVATE_KEY or stored as a keystore file under ETH_KEY_PATH');
+          process.exit(1);
+        } else {
+          const key = getEthereumKeyFromEnvVar();
+          await eth.lock(key, LOCK_LENGTH, 1, '0x01', remoteUrl=INFURA_PATH);
+        }
         break;
     }
-  })
-  .option('-s, --seed <hexSeed>', 'A seed to sign transactions with, targetting the desired protocol');
+  });
 
 program.on('--help', () => {
   console.log('');
@@ -83,4 +108,28 @@ function assert(condition, message) {
         }
         throw message; // Fallback
     }
+}
+
+function printNoKeyError(customMsg) {
+  console.log('');
+  console.log(`\t${error.underline('You must provide a private key seed as a CLI argument or as environment variable!')}`);
+  console.log(`\t${error.underline(`If you use an environment variable, ${customMsg}`)}`)
+  console.log('');
+}
+
+function getEthereumKeyFromEnvVar() {
+  return (ETH_PRIVATE_KEY)
+    ? eth.getPrivateKeyFromEnvVar(ETH_PRIVATE_KEY);
+    : eth.getPrivateKeyFromEncryptedJson(
+        ETH_KEY_PATH,
+        ETH_JSON_VERSION,
+        ETH_JSON_PASSWORD);
+}
+
+function getBitcoinKeyFromEnvVar() {
+  return btc.getPrivateKeyWIFFromEnvVar(
+    BTC_PRIVATE_KEY_WIF,
+    BTC_BIP39_MNEMONIC_SEED,
+    BTC_BIP32_DERIVATION_PATH,
+    BTC_BIP38_KEY_PATH);
 }

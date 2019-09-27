@@ -19,6 +19,7 @@
     "@types/filesystem": "^0.0.29",
     "bclient": "^0.1.7",
     "bcoin": "^1.0.2",
+    "bip39": "^3.0.2",
     "bip65": "^1.0.3",
     "bitcoinjs-lib": "^5.1.6",
     "bledger": "^0.3.0",
@@ -27,9 +28,13 @@
     "dotenv": "^8.1.0",
     "edgeware-node-types": "1.0.10",
     "ethereumjs-tx": "^2.1.1",
+    "ethereumjs-wallet": "^0.6.3",
+    "ipfs": "^0.37.1",
+    "ipfs-http-client": "^38.0.0",
     "truffle-hdwallet-provider": "^1.0.17",
     "ts-node": "^7.0.1",
-    "web3": "^1.2.1"
+    "web3": "^1.2.1",
+    "wif": "^2.0.6"
   },
   "scripts": {
     "lint": "tslint -c tslint.json 'src/**/*.ts'",
