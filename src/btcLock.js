@@ -20,6 +20,10 @@ function idToHash(txid) {
   return Buffer.from(txid, 'hex').reverse();
 }
 
+function toOutputScript(address, network) {
+  return bitcoin.address.toOutputScript(address, network);
+}
+
 /**
  * Lock BTC up in a CTLV P2SH transaction
  *
@@ -64,49 +68,42 @@ export const createScript = (lockTime, publicKey) => {
 }
 
 export async function createlockTx(keyWIF, locktime, amount, comsosAddress, unspentOutputs, network, changeAddress=undefined, changeAmount=undefined) {
-  console.log(keyWIF)
   const key = bitcoin.ECPair.fromWIF(keyWIF, network);
-  console.log(key);
   const hashType = bitcoin.Transaction.SIGHASH_ALL;
-  console.log(key, hashType);
   const redeemScript = createScript(locktime, key.publicKey);
-  console.log('here')
   const { address } = bitcoin.payments.p2sh({
     redeem: {
       output: redeemScript,
-      network: network
+      network: network,
     },
-    network: network
+    network: network,
   });
 
-  const psbt = new bitcoin.Psbt();
-  console.log(unspentOutputs)
+  const tx = new bitcoin.Transaction();
   unspentOutputs.forEach(output => {
     if (output.length > 0) {
       let splitOutput = output.split('-');
-      psbt.addInput(idToHash(splitOutput[0]), Number(splitOutput[1]), 0xfffffffe);
+      tx.addInput(idToHash(splitOutput[0]), Number(splitOutput[1]), 0xfffffffe);
     }
   });
   // Send amount of satoshis to the P2SH time lock transaction
-  console.log('heree', address, Number(amount))
-  psbt.addOutput(address, amount);
+  tx.addOutput(toOutputScript(address, network), Number(amount));
   // Add change address output if exists
   if (changeAddress && changeAddress) {
     console.log('test');
-    psbt.addOutput(changeAddress, changeAmount);
+    tx.addOutput(changeAddress, changeAmount);
   }
   // Add OP_RETURN data field with IPFS hash
   // OP_RETURN always with 0 value unless you want to burn coins
   const data = new Buffer(`${comsosAddress}`);
   const dataScript = bitcoin.payments.embed({ data: [data] });
-  console.log('OP');
-  psbt.addOutput(dataScript.output, 0);
-  console.log('RETURN');
-  psbt.signInput(0, key);
-  psbt.validateSignaturesOfInput(0);
-  psbt.finalizeAllInputs();
+  tx.addOutput(dataScript.output, 0);
+  console.log(key);
+  tx.signInput(0, key;
+  tx.validateSignaturesOfInput(0);
+  tx.finalizeAllInputs();
   // Return tx hex
-  return psbt.extractTransaction().toHex();
+  return tx.extractTransaction().toHex();
 }
 
 export async function createUnlockTx(redeemScript, unspent, network) {
