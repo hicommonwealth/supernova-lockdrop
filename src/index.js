@@ -41,7 +41,10 @@ program.version(version)
   .name(execName)
   .usage('<protocol> <function> [ARGS...]')
   .arguments('<protocol> <func> [args...]')
+  .option('--test', 'Test out some functionality')
   .action(async (protocol, func, args) => {
+    console.log(program.test);
+
     console.log(`Protocol: ${protocol}, function: ${func}, args: ${args}`)
     const isLock = (func === 'lock');
     const msg = `${(isLock) ? 'to lock on' : 'to query the lockdrop on'}`;

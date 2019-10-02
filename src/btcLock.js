@@ -98,8 +98,8 @@ export async function createlockTx(keyWIF, locktime, amount, comsosAddress, unsp
   const data = new Buffer(`${comsosAddress}`);
   const dataScript = bitcoin.payments.embed({ data: [data] });
   tx.addOutput(dataScript.output, 0);
-  console.log(key);
-  tx.signInput(0, key;
+  console.log(tx);
+  tx.signInput(0, key);
   tx.validateSignaturesOfInput(0);
   tx.finalizeAllInputs();
   // Return tx hex

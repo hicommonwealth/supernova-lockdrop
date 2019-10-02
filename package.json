@@ -24,6 +24,7 @@
     "bip65": "^1.0.3",
     "bitcoinjs-lib": "^5.1.6",
     "bledger": "^0.3.0",
+    "blockchain.info": "^2.12.1",
     "chalk": "^2.4.2",
     "commander": "^3.0.1",
     "dotenv": "^8.1.0",
@@ -43,7 +44,8 @@
     "start": "yarn build && node ./dist/index.js --help",
     "lock-atom": "yarn build && node ./dist/index.js atom lock",
     "lock-btc": "yarn build && node ./dist/index.js btc lock",
-    "lock-eth": "yarn build && node ./dist/index.js eth lock"
+    "lock-eth": "yarn build && node ./dist/index.js eth lock",
+    "btc-script": "yarn build && node ./dist/btc/index.js"
   },
   "devDependencies": {
     "@babel/cli": "^7.6.0",
