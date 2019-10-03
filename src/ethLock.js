@@ -19,9 +19,9 @@ export function getWeb3(remoteUrl, key) {
   return web3;
 }
 
-export async function lock(key, length, amount, comsosAddress, remoteUrl=LOCALHOST_URL) {
-  console.log(`locking ${value} ether into Lockdrop contract for ${length} months. Receiver: ${comsosAddress}`);
-  console.log(`Contract ${LOCKDROP_CONTRACT_ADDRESS}`);
+export async function lock(key, length, amount, lockdropContractAddress, comsosAddress, remoteUrl=LOCALHOST_URL) {
+  console.log(`locking ${amount} ether into Lockdrop contract for ${length} months. Receiver: ${comsosAddress}`);
+  console.log(`Contract ${lockdropContractAddress}`);
   const web3 = getWeb3(remoteUrl, key);
   const contract = new web3.eth.Contract(LOCKDROP_JSON.abi, lockdropContractAddress);
   // Grab account's transaction nonce for tx params
@@ -34,7 +34,7 @@ export async function lock(key, length, amount, comsosAddress, remoteUrl=LOCALHO
     from: web3.currentProvider.addresses[0],
     to: lockdropContractAddress,
     gas: 150000,
-    data: contract.methods.lock(lockLength, comsosAddress, isValidator).encodeABI(),
+    data: contract.methods.lock(length, comsosAddress).encodeABI(),
     value: toBN(value),
   });
   // Sign the tx and send it

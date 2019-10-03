@@ -11,11 +11,10 @@
   },
   "preferGlobal": true,
   "files": [
-    "src/",
+    "src/ipfsUtil.ts",
     "bin/"
   ],
   "dependencies": {
-    "@babel/runtime": "^7.6.0",
     "@types/filesystem": "^0.0.29",
     "bclient": "^0.1.7",
     "bcoin": "^1.0.2",
@@ -40,24 +39,22 @@
   },
   "scripts": {
     "lint": "tslint -c tslint.json 'src/**/*.ts'",
-    "build": "./node_modules/.bin/babel src -d dist",
-    "start": "yarn build && node ./dist/index.js --help",
-    "lock-atom": "yarn build && node ./dist/index.js atom lock",
-    "lock-btc": "yarn build && node ./dist/index.js btc lock",
-    "lock-eth": "yarn build && node ./dist/index.js eth lock",
-    "btc-script": "yarn build && node ./dist/btc/index.js"
+    "build": "tsc",
+    "start": "ts-node ./src/index.js --help",
+    "lock-atom": "ts-node ./src/index.js atom lock",
+    "lock-btc": "ts-node ./src/index.js btc lock",
+    "lock-eth": "ts-node ./src/index.js eth lock"
   },
   "devDependencies": {
-    "@babel/cli": "^7.6.0",
-    "@babel/core": "^7.6.0",
-    "@babel/plugin-transform-runtime": "^7.6.0",
-    "@babel/preset-env": "^7.6.0",
-    "@types/chai": "^4.1.7",
-    "@types/mocha": "^5.2.5",
+    "@types/chai": "^4.2.3",
+    "@types/ethereumjs-tx": "^1.0.1",
+    "@types/mocha": "^5.2.7",
+    "@types/node": "^12.7.7",
     "chai": "^4.2.0",
     "mocha": "^5.2.0",
     "reflect-metadata": "^0.1.12",
     "tslint": "^5.12.0",
+    "types-bn": "^0.0.1",
     "typescript": "^3.2.2",
     "typings": "^2.1.1"
   }

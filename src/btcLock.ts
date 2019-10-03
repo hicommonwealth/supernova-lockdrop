@@ -2,19 +2,10 @@ const bitcoin = require('bitcoinjs-lib');
 import bip65 from 'bip65';
 import bip39 from 'bip39';
 import bip38 from 'bip38';
+import bip32 from 'bip32';
 import wif from 'wif';
+import fs from 'fs';
 
-/**
- * Helper class for storing content in IPFS
- *
- * @class      BtcIPFSLockdropContent Content format wrapper
- */
-class BtcIPFSLockdropContent {
-  constructor(timeLockScript, comsosAddress) {
-    self.timeLockScript = timeLockScript;
-    self.comsosAddress = comsosAddress;
-  }
-}
 
 function idToHash(txid) {
   return Buffer.from(txid, 'hex').reverse();
@@ -33,18 +24,19 @@ function toOutputScript(address, network) {
  * @param      {object}  [unspentOutputs=None] The unspent output
  * @param      {object}  [network=None]        The network
  */
-export const lock = async (keyWIF, length, amount, comsosAddress, unspentOutputs, changeAddress, changeAmount, network) => {
+export const lock = async (keyWIF, length, amount, comsosAddress, unspentOutputs, network, changeAddress=undefined, changeAmount=undefined) => {
   if (!network) {
     network = bitcoin.networks.regtest;
   }
 
   if (!unspentOutputs) {
-    return;
+    return new Error('You must provide unspent outputs as a function argument');
   }
 
+  const key = bitcoin.ECPair.fromWIF(keyWIF, network);
   const lockTime = bip65.encode({utc: Math.floor(Date.now() / 1000) + (3600 * 24 * length)});
   const lockTxHex = createlockTx(
-    keyWIF,
+    key.publicKey,
     lockTime,
     amount,
     comsosAddress,
@@ -67,10 +59,8 @@ export const createScript = (lockTime, publicKey) => {
   `.trim().replace(/\s+/g, ' '))
 }
 
-export async function createlockTx(keyWIF, locktime, amount, comsosAddress, unspentOutputs, network, changeAddress=undefined, changeAmount=undefined) {
-  const key = bitcoin.ECPair.fromWIF(keyWIF, network);
-  const hashType = bitcoin.Transaction.SIGHASH_ALL;
-  const redeemScript = createScript(locktime, key.publicKey);
+export const createlockTx = (publicKey, locktime, amount, comsosAddress, unspentOutputs, network, changeAddress=undefined, changeAmount=undefined) => {
+  const redeemScript = createScript(locktime, publicKey);
   const { address } = bitcoin.payments.p2sh({
     redeem: {
       output: redeemScript,
@@ -79,34 +69,42 @@ export async function createlockTx(keyWIF, locktime, amount, comsosAddress, unsp
     network: network,
   });
 
-  const tx = new bitcoin.Transaction();
+  // const tx = new bitcoin.Transaction();
+  const psbt = new bitcoin.Psbt({ network: bitcoin.networks.regtest });
   unspentOutputs.forEach(output => {
     if (output.length > 0) {
       let splitOutput = output.split('-');
-      tx.addInput(idToHash(splitOutput[0]), Number(splitOutput[1]), 0xfffffffe);
+      psbt.addInput(idToHash(splitOutput[0]), Number(splitOutput[1]), 0xfffffffe);
     }
   });
   // Send amount of satoshis to the P2SH time lock transaction
-  tx.addOutput(toOutputScript(address, network), Number(amount));
-  // Add change address output if exists
-  if (changeAddress && changeAddress) {
-    console.log('test');
-    tx.addOutput(changeAddress, changeAmount);
-  }
+  psbt.addOutput({
+    script: redeemScript,
+    address: address,
+    value: Number(amount),
+    network: network,
+  });
   // Add OP_RETURN data field with IPFS hash
   // OP_RETURN always with 0 value unless you want to burn coins
   const data = new Buffer(`${comsosAddress}`);
   const dataScript = bitcoin.payments.embed({ data: [data] });
-  tx.addOutput(dataScript.output, 0);
-  console.log(tx);
-  tx.signInput(0, key);
-  tx.validateSignaturesOfInput(0);
-  tx.finalizeAllInputs();
+  psbt.addOutput({
+    script: dataScript.output,
+    value: 0,
+  });
+  // Add change address output if exists
+  if (changeAddress && changeAddress) {
+    psbt.addOutput({
+      address: changeAddress,
+      value: changeAmount
+    });
+  }
   // Return tx hex
-  return tx.extractTransaction().toHex();
+  return psbt.toHex();
 }
 
-export async function createUnlockTx(redeemScript, unspent, network) {
+export async function createUnlockTx(key, redeemScript, unspent, network) {
+  const hashType = bitcoin.Transaction.SIGHASH_ALL;
   const tx = new bitcoin.Transaction();
   tx.addInput(idToHash(unspent.txId), unspent.vout, 0xfffffffe);
   const signatureHash = tx.hashForSignature(0, redeemScript, hashType);
@@ -137,7 +135,7 @@ export const getPrivateKeyWIFFromEnvVar = (rawWIF, mnemonic, derivationPath, key
   }
 
   if (keystorePath) {
-    if (typeof password === 'undefined') throw new new Error('Please specify a decryption password for the keystore data');
+    if (typeof password === 'undefined') throw new Error('Please specify a decryption password for the keystore data');
     const encryptedKey = fs.readFileSync(keystorePath, 'utf8');
     const decryptedKey = bip38.decrypt(encryptedKey, password, function (status) { console.log(status.percent) });
     return wif.encode(0x80, decryptedKey.privateKey, decryptedKey.compressed)

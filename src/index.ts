@@ -4,11 +4,8 @@ import fs from 'fs';
 import program from 'commander';
 import path from 'path';
 import chalk from 'chalk';
-import { version } from '../package.json';
-import * as atom from './atomLock';
 import * as btc from './btcLock';
 import * as eth from './ethLock';
-import * as ipfsUtil from './ipfsUtil';
 
 // CLI Constants
 const LOCK_LENGTH = 31; // 31 days
@@ -37,7 +34,7 @@ const error = chalk.bold.red;
 const warning = chalk.keyword('orange');
 
 const execName = path.basename(process.argv[1]);
-program.version(version)
+program.version('1.0.0')
   .name(execName)
   .usage('<protocol> <function> [ARGS...]')
   .arguments('<protocol> <func> [args...]')
@@ -68,7 +65,7 @@ program.version(version)
           process.exit(1);
         } else {
           const key = getEthereumKeyFromEnvVar();
-          await eth.lock(key, args[0], args[1], '0x01', remoteUrl=INFURA_PATH);
+          await eth.lock(key, args[0], args[1], '0x01', LOCKDROP_CONTRACT_ADDRESS, INFURA_PATH);
         }
         break;
       case 'btc':
@@ -80,7 +77,7 @@ program.version(version)
           const key = getBitcoinKeyFromEnvVar();
           const network = btc.getNetworkSetting(BTC_NETWORK_SETTING);
           const changeAddress = BTC_CHANGE_ADDRESS;
-          await btc.lock(key, args[0], args[1], '0x01', BTC_UTXOS, network);
+          await btc.lock(key, args[0], args[1], '0x01', BTC_UTXOS, network, undefined, undefined);
         }
         break;
       default:
@@ -90,7 +87,7 @@ program.version(version)
           process.exit(1);
         } else {
           const key = getEthereumKeyFromEnvVar();
-          await eth.lock(key, args[0], args[1], '0x01', remoteUrl=INFURA_PATH);
+          await eth.lock(key, args[0], args[1], '0x01', LOCKDROP_CONTRACT_ADDRESS, INFURA_PATH);
         }
         break;
     }

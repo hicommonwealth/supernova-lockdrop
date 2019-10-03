@@ -5,10 +5,12 @@
     "moduleResolution": "node",
     "module": "commonjs",
     "esModuleInterop": true,
+    "allowJs": true,
     "outDir": "./dist/"
   },
-  "files": [
-    "./src/index.ts"
+  "include": [
+    "./src/",
+    "../../node_modules/@types/index.d.ts",
   ],
   "exclude": [
     "**/*.spec.ts",
