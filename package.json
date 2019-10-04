@@ -42,9 +42,9 @@
     "lint": "tslint -c tslint.json 'src/**/*.ts'",
     "build": "tsc",
     "start": "ts-node ./src/index.js --help",
-    "lock-atom": "ts-node ./src/index.js atom lock",
-    "lock-btc": "ts-node ./src/index.js btc lock",
-    "lock-eth": "ts-node ./src/index.js eth lock",
+    "lock-atom": "ts-node ./src/index.ts atom lock",
+    "lock-btc": "ts-node ./src/index.ts btc lock",
+    "lock-eth": "ts-node ./src/index.ts eth lock",
     "test": "nyc --all ts-mocha ./test/*.spec.ts"
   },
   "devDependencies": {
