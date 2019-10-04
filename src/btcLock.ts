@@ -41,9 +41,10 @@ export const lock = async (keyWIF, length, amount, comsosAddress, unspentOutputs
     amount,
     comsosAddress,
     unspentOutputs,
+    network,
     changeAddress,
-    changeAmount,
-    network);
+    changeAmount);
+  console.log(lockTxHex);
 };
 
 export const createScript = (lockTime, publicKey) => {
