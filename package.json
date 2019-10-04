@@ -11,7 +11,7 @@
   },
   "preferGlobal": true,
   "files": [
-    "src/ipfsUtil.ts",
+    "src/",
     "bin/"
   ],
   "dependencies": {
@@ -32,6 +32,7 @@
     "ethereumjs-wallet": "^0.6.3",
     "ipfs": "^0.37.1",
     "ipfs-http-client": "^38.0.0",
+    "regtest-client": "^0.2.0",
     "truffle-hdwallet-provider": "^1.0.17",
     "ts-node": "^7.0.1",
     "web3": "^1.2.1",
@@ -43,16 +44,20 @@
     "start": "ts-node ./src/index.js --help",
     "lock-atom": "ts-node ./src/index.js atom lock",
     "lock-btc": "ts-node ./src/index.js btc lock",
-    "lock-eth": "ts-node ./src/index.js eth lock"
+    "lock-eth": "ts-node ./src/index.js eth lock",
+    "test": "nyc --all ts-mocha ./test/*.spec.ts"
   },
   "devDependencies": {
+    "@istanbuljs/nyc-config-typescript": "^0.1.3",
     "@types/chai": "^4.2.3",
     "@types/ethereumjs-tx": "^1.0.1",
     "@types/mocha": "^5.2.7",
     "@types/node": "^12.7.7",
     "chai": "^4.2.0",
     "mocha": "^5.2.0",
+    "nyc": "^14.1.1",
     "reflect-metadata": "^0.1.12",
+    "ts-mocha": "^6.0.0",
     "tslint": "^5.12.0",
     "types-bn": "^0.0.1",
     "typescript": "^3.2.2",

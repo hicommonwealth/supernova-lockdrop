@@ -10,7 +10,6 @@
   },
   "include": [
     "./src/",
-    "../../node_modules/@types/index.d.ts",
   ],
   "exclude": [
     "**/*.spec.ts",
