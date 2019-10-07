@@ -6,6 +6,7 @@ import path from 'path';
 import chalk from 'chalk';
 import * as btc from './btcLock';
 import * as eth from './ethLock';
+import { Getters, queryLocks } from './cosmosQuery';
 
 // CLI Constants
 const LOCK_LENGTH = 31; // 31 days
@@ -29,6 +30,8 @@ const ETH_JSON_PASSWORD = process.env.ETH_JSON_PASSWORD;
 const ETH_JSON_VERSION = process.env.ETH_JSON_VERSION;
 // Infura API url
 const INFURA_PATH = process.env.INFURA_PATH;
+// Cosmos
+const COSMOS_REST_URL = process.env.COSMOS_REST_URL || 'http://149.28.47.49:1318';
 // Stdout coloring
 const error = chalk.bold.red;
 const warning = chalk.keyword('orange');
@@ -39,11 +42,14 @@ program.version('1.0.0')
   .usage('<protocol> <function> [ARGS...]')
   .arguments('<protocol> <func> [args...]')
   .option('--test', 'Test out some functionality')
+  .option('-o, --output <filename>', 'Specify an output file for query data')
+  .option('-v, --verbose', 'Print more log output')
   .action(async (protocol, func, args) => {
     console.log(program.test);
 
     console.log(`Protocol: ${protocol}, function: ${func}, args: ${args}`)
     const isLock = (func === 'lock');
+    // technically anything other than 'lock' will trigger a query
     const msg = `${(isLock) ? 'to lock on' : 'to query the lockdrop on'}`;
 
     // If isLock, then the arguments should be <protocol> lock <length> <amount>
@@ -78,6 +84,23 @@ program.version('1.0.0')
           const network = btc.getNetworkSetting(BTC_NETWORK_SETTING);
           const changeAddress = BTC_CHANGE_ADDRESS;
           await btc.lock(key, args[0], args[1], '0x01', BTC_UTXOS, network, undefined, undefined);
+        }
+        break;
+      case 'atom':
+        console.log(`Using the Supernova Lockdrop CLI ${msg} Cosmos`);
+        // initialize getters for API
+        const quiet = !program.verbose;
+        const getters = new Getters(COSMOS_REST_URL, quiet);
+        await getters.init();
+
+        // query validator and delegator information to compute locks
+        const lockHeight = args[0] || getters.latestHeight;
+        const locks = await queryLocks(getters, lockHeight, quiet);
+        const lockJson = JSON.stringify(locks, null, 2);
+        if (program.output) {
+          fs.writeFileSync(program.output, lockJson);
+        } else {
+          process.stdout.write(lockJson);
         }
         break;
       default:

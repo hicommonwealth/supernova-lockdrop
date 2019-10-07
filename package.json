@@ -13,7 +13,7 @@
   "scripts": {
     "lint": "tslint -c tslint.json 'src/**/*.ts'",
     "start": "ts-node ./src/index.ts",
-    "lock-atom": "ts-node ./src/index.ts atom lock",
+    "query-atom": "ts-node ./src/index.ts atom query",
     "lock-btc": "ts-node ./src/index.ts btc lock",
     "lock-eth": "ts-node ./src/index.ts eth lock",
     "test": "nyc --all ts-mocha ./test/*.spec.ts"
@@ -36,6 +36,7 @@
     "ethereumjs-wallet": "^0.6.3",
     "ipfs": "^0.37.1",
     "ipfs-http-client": "^38.0.0",
+    "isomorphic-fetch": "^2.2.1",
     "regtest-client": "^0.2.0",
     "truffle-hdwallet-provider": "^1.0.17",
     "ts-node": "^7.0.1",
