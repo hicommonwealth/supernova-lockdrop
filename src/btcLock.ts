@@ -143,8 +143,10 @@ export const setupBcoin = (network, apiKey) => {
     apiKey: apiKey,
   }
   
-  const client = new NodeClient(clientOptions);
-  const wallet = new WalletClient(walletOptions);
+  const nodeClient = new NodeClient(clientOptions);
+  const walletClient = new WalletClient(walletOptions);
+
+  return { nodeClient, walletClient };
 }
 
 // /**
@@ -207,76 +209,10 @@ export const getNetworkSettings = (network) => {
   }
 }
 
-export const lockAndRedeemCLTV = async (network, nodeClient, walletClient, walletId) => {
-  // We'll use this as a reference for later.
-  // to get value in satoshis all you need is `amountToFund.toValue()`;
-  const amountToFund = Amount.fromBTC('.5');
-
-  // flags are for script and transaction verification
-  const flags = Script.flags.STANDARD_VERIFY_FLAGS;
-
-  // 1) Setup keyrings
-  const keyring = KeyRing.generate(true);
-  const keyring2 = KeyRing.generate(true);
-  // can only be redeemed after the 100th block has been mined
-  const locktime = '100';
-  keyring.witness = true;
-  keyring2.witness = true;
-
-  // 2) Get hash and save it to keyring
-  const pkh = keyring.getKeyHash();
-  const script = createScript(locktime, pkh);
-  keyring.script = script;
-
-  // 3) Create the address
-  const lockingAddr = getAddress(script, network);
-
-  // 4) Create our funding transaction that sends
-  // 50,000 satoshis to our locking address
-  const cb = new MTX();
-
-  cb.addInput({
-    prevout: new Outpoint(),
-    script: new Script(),
-    sequence: 0xffffffff
-  });
-
-  // Send 50,000 satoshis to our locking address.
-  // this will lock up the funds to whoever can solve
-  // the CLTV script
-  cb.addOutput(lockingAddr, amountToFund.toValue());
-
-  // Convert the coinbase output to a Coin object
-  // In reality you might get these coins from a wallet.
-  // `fromTX` will take an output from a previous
-  // tx and turn it into a coin object
-  // (the second param is the index of the target UTXO)
-  const coin = Coin.fromTX(cb, 0, -1);
-
-  // 5) Setup the redeeming transaction
-  // Start with an empty mutable transaction
-  let mtx = new MTX();
-
-  // add our cb coin as the input (i.e. the "funding" UTXO)
-  mtx.addCoin(coin);
-
-  // get an address to send the funds from the coin to
-  const receiveAddr = keyring2.getAddress('string', network);
-
-  // value of the input minus arbitrary amount for fee
-  // normally we could do this by querying our node to estimate rate
-  // or use the `fund` method if we had other coins to spend with
-  const receiveValue = coin.value - 1000;
-  mtx.addOutput(receiveAddr, receiveValue);
-
-  // So now we have an mtx with the right input and output
-  // but our input still hasn't been signed
-  console.log('mtx:', mtx);
-
+export const lockAndRedeemCLTV = async (amountToFund, network, nodeClient, walletClient, walletId, walletAccount) => {
   try {
     const txInfoPath = './tx-info.json'; // this is where we'll persist our info
     const wallet = walletClient.wallet(walletId); // instantiate a client for our wallet
-
     let redeemScript, lockingAddr, locktime;
 
     // check if file exists and if there is info saved to it
@@ -284,21 +220,37 @@ export const lockAndRedeemCLTV = async (network, nodeClient, walletClient, walle
     if (!txInfo.length) {
       // No saved transaction, so let's create it and then
       // save the information for later
-
+      console.log('No TX found, creating a new CLTV tx');
       // Step 1: Setup wallet client and confirm balance
-      const { balance } = await wallet.getInfo();
-      assert(balance.confirmed > amountToFund.toValue(), 'Not enough funds!');
-
+      const result = await wallet.getInfo();
       // Step 2: Setup keyring w/ pkh and create locking address
       // that can be redeemed by our real wallet after a set locktime
       const { publicKey, address } = await wallet.createAddress('default');
+      console.log(publicKey, address);
+      // For testing only, if the account is not funded yet
+      if (result.balance.confirmned <= 0) {
+        // Fund the account
+        const cb = new MTX();
+
+        cb.addInput({
+          prevout: new Outpoint(),
+          script: new Script(),
+          sequence: 0xffffffff,
+        });
+
+        // Send 50,000 satoshis to our locking address.
+        // this will lock up the funds to whoever can solve
+        // the CLTV script
+        cb.addOutput(lockingAddr, amountToFund.toValue());
+      } else {
+        assert(result.balance.confirmed > amountToFund.toValue(), 'Not enough funds!');
+      }
 
       // create the keyring from the public key
       // and get the public key hash for the locking script
       const keyring = KeyRing.fromKey(Buffer.from(publicKey, 'hex'), true);
       keyring.witness = true;
       const pkh = keyring.getKeyHash();
-
       // Get current height and set locktime to 10 blocks from now
       const { chain: { height }} = await nodeClient.getInfo();
       locktime = height + 10;
@@ -317,8 +269,13 @@ export const lockAndRedeemCLTV = async (network, nodeClient, walletClient, walle
       console.log('transaction sent to mempool');
 
       // save the transaction information to to a file
-      txInfo = { lockedTx, lockingAddr, redeemScript, locktime, redeemAddress: address };
-      fs.writeFileSync(txInfoPath, JSON.stringify(txInfo, null, 2));
+      fs.writeFileSync(txInfoPath, JSON.stringify({
+        lockedTx,
+        lockingAddr,
+        redeemScript,
+        locktime,
+        redeemAddress: address
+      }, null, 2));
 
       // mine one block to get tx on chain
       // make sure you're doing this on regtest or simnet and
