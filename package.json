@@ -2,18 +2,22 @@
   "name": "supernova-lockdrop",
   "version": "1.0.0",
   "description": "Scripts for supernova lockdrop",
-  "main": "dist/index.js",
+  "main": "src/index.ts",
   "repository": "https://github.com/hicommonwealth/supernova-lockdrop.git",
   "author": "hello@commonwealth.im",
   "license": "GPL-3.0",
-  "bin": {
-    "edge": "./bin/edge"
-  },
   "preferGlobal": true,
   "files": [
-    "src/",
-    "bin/"
+    "src/"
   ],
+  "scripts": {
+    "lint": "tslint -c tslint.json 'src/**/*.ts'",
+    "start": "ts-node ./src/index.ts",
+    "query-atom": "ts-node ./src/index.ts atom query",
+    "lock-btc": "ts-node ./src/index.ts btc lock",
+    "lock-eth": "ts-node ./src/index.ts eth lock",
+    "test": "nyc --all ts-mocha ./test/*.spec.ts"
+  },
   "dependencies": {
     "@types/filesystem": "^0.0.29",
     "bclient": "^0.1.7",
@@ -32,20 +36,12 @@
     "ethereumjs-wallet": "^0.6.3",
     "ipfs": "^0.37.1",
     "ipfs-http-client": "^38.0.0",
+    "isomorphic-fetch": "^2.2.1",
     "regtest-client": "^0.2.0",
     "truffle-hdwallet-provider": "^1.0.17",
     "ts-node": "^7.0.1",
     "web3": "^1.2.1",
     "wif": "^2.0.6"
-  },
-  "scripts": {
-    "lint": "tslint -c tslint.json 'src/**/*.ts'",
-    "build": "tsc",
-    "start": "ts-node ./src/index.js --help",
-    "lock-atom": "ts-node ./src/index.ts atom lock",
-    "lock-btc": "ts-node ./src/index.ts btc lock",
-    "lock-eth": "ts-node ./src/index.ts eth lock",
-    "test": "nyc --all ts-mocha ./test/*.spec.ts"
   },
   "devDependencies": {
     "@istanbuljs/nyc-config-typescript": "^0.1.3",
