@@ -15,7 +15,10 @@ const BTC_BIP38_KEY_PATH = process.env.BTC_BIP38_KEY_PATH;
 const BTC_BIP38_PASSWORD = process.env.BTC_BIP38_PASSWORD;
 const BTC_BIP39_MNEMONIC_SEED = process.env.BTC_BIP39_MNEMONIC_SEED;
 const BTC_BIP32_DERIVATION_PATH = process.env.BTC_BIP32_DERIVATION_PATH;
-const BTC_UTXOS = process.env.BTC_UTXOS.split(',');
+let BTC_UTXOS;
+if (process.env.BTC_UTXOS.length > 0) {
+  BTC_UTXOS = process.env.BTC_UTXOS.split(',');
+}
 const BTC_NETWORK_SETTING = process.env.BITCOIN_NETWORK_SETTING || 'regtest';
 const BTC_CHANGE_ADDRESS = process.env.BTC_CHANGE_ADDRESS;
 const BTC_CHANGE_AMOUNT = process.env.BTC_CHANGE_AMOUNT;

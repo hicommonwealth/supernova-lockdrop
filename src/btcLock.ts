@@ -1,167 +1,432 @@
-const bitcoin = require('bitcoinjs-lib');
-import bip65 from 'bip65';
-import bip39 from 'bip39';
-import bip38 from 'bip38';
-import bip32 from 'bip32';
-import wif from 'wif';
+import {
+  Amount, Coin, KeyRing, MTX, Network,
+  Outpoint, Script, ScriptNum, Stack
+} from 'bcoin';
+import { WalletClient, NodeClient } from 'bclient';
 import fs from 'fs';
 
+import assert from 'assert';
 
-function idToHash(txid) {
-  return Buffer.from(txid, 'hex').reverse();
-}
+/**
+ * @param {String} locktime - Time that the script can not be redeemed before
+ * @param {Buffer} public key hash
+ * @returns {Script}
+**/
+export const createScript = (locktime, publicKeyHash) => {
+  let pkh;
+  if (typeof publicKeyHash === 'string')
+    pkh = Buffer.from(publicKeyHash);
+  else pkh = publicKeyHash;
+  assert(Buffer.isBuffer(pkh), 'publicKey must be a Buffer');
+  assert(
+    locktime,
+    'Must pass in a locktime argument, either block height or UNIX epoch time'
+  );
 
-function toOutputScript(address, network) {
-  return bitcoin.address.toOutputScript(address, network);
+  const script = new Script();
+  // lock the transactions until
+  // the locktime has been reached
+  script.pushNum(ScriptNum.fromString(locktime.toString(), 10));
+  // check the locktime
+  script.pushSym('CHECKLOCKTIMEVERIFY');
+  // if verifies, drop time from the stack
+  script.pushSym('drop');
+  // duplicate item on the top of the stack
+  // which should be.the public key
+  script.pushSym('dup');
+  // hash the top item from the stack (the public key)
+  script.pushSym('hash160')
+  // push the hash to the top of the stack
+  script.pushData(pkh);
+  // confirm they match
+  script.pushSym('equalverify');
+  // confirm the signature matches
+  script.pushSym('checksig');
+  // Compile the script to its binary representation
+  // (you must do this if you change something!).
+  script.compile();
+  return script;
 }
 
 /**
- * Lock BTC up in a CTLV P2SH transaction
- *
- * @param      {number}  length                The length in days
- * @param      {number}  amount                The amount of BTC to lock up
- * @param      {string}  comsosAddress         The comsos address
- * @param      {object}  [unspentOutputs=None] The unspent output
- * @param      {object}  [network=None]        The network
+ * @param {Script} script to get corresponding address for
+ * @param {Network} to determine encoding based on network
+ * @returns {Address} - p2wsh segwit address for specified network
+**/
+export const getAddress = (script, network) => {
+  // get the hash of the script
+  // and derive address from that
+  const p2wsh = script.forWitness();
+  const segwitAddress = p2wsh.getAddress().toBech32(network);
+  return segwitAddress;
+}
+
+/**
+ * script the inputs w/ our custom script for an mtx
+ * This is modeled after the scriptInput method on
+ * the `MTX` class
+ * @param {MTX} mtx with unscripted input
+ * @param {Number} index - index of input to script
+ * @param {Coin} coin- UTXO we are spending
+ * @param {KeyRing} ring - keyring we are signing with
  */
-export const lock = async (keyWIF, length, amount, comsosAddress, unspentOutputs, network, changeAddress=undefined, changeAmount=undefined) => {
-  if (!network) {
-    network = bitcoin.networks.regtest;
-  }
+export const scriptInput = (mtx, index, coin, ring) => {
+  const input = mtx.inputs[index];
+  const prev = coin.script;
+  const wsh = prev.getWitnessScripthash();
+  assert(ring instanceof KeyRing, 'Must pass a KeyRing to scriptInput');
+  // this is the redeem script used to verify the p2wsh hash
+  const wredeem = ring.getRedeem(wsh);
 
-  if (!unspentOutputs) {
-    return new Error('You must provide unspent outputs as a function argument');
-  }
+  assert(wredeem, 'keyring has no redeem script');
 
-  const key = bitcoin.ECPair.fromWIF(keyWIF, network);
-  const lockTime = bip65.encode({utc: Math.floor(Date.now() / 1000) + (3600 * 24 * length)});
-  const lockTxHex = createlockTx(
-    key.publicKey,
-    lockTime,
-    amount,
-    comsosAddress,
-    unspentOutputs,
-    network,
-    changeAddress,
-    changeAmount);
-  console.log(lockTxHex);
+  const vector = new Stack();
+
+  // first add empty space in stack for signature and public key
+  vector.pushInt(0);
+  vector.pushInt(0);
+
+  // add the raw redeem script to the stack
+  vector.push(wredeem.toRaw());
+
+  input.witness.fromStack(vector);
+  mtx.inputs[index] = input;
+  return mtx;
+}
+
+/**
+ * This is modeled after the signInput method on
+ * the `MTX` class
+ * @param     {MTX}     mtx     with unscripted input
+ * @param     {Number}  index   index of input to script
+ * @param     {Coin}    coin    UTXO we are spending
+ * @param     {KeyRing} ring    keyring we are signing with
+ * @returns   {MTX}
+*/
+export const signInput = (mtx, index, coin, ring) => {
+  const input = mtx.inputs[index];
+  let witness, version;
+
+  const redeem = input.witness.getRedeem();
+
+  assert(
+    redeem,
+    'Witness has not been templated'
+  );
+
+  witness = input.witness;
+  // version is for the signing to indicate signature hash version
+  // 0=legacy, 1=segwit
+  version = 1;
+
+  const stack = witness.toStack();
+  // let's get the signature and replace the placeholder
+  // in the stack. We can use the MTX `signature` method
+  const sig = mtx.signature(index, redeem, coin.value, ring.privateKey, null, version);
+  stack.setData(0, sig);
+
+  stack.setData(1, ring.getPublicKey());
+  witness.fromStack(stack);
+  return mtx;
+}
+
+export const setupBcoin = (network, apiKey) => {
+  const clientOptions = {
+    network: network.type,
+    port: network.rpcPort,
+    apiKey: apiKey,
+  }
+  
+  const walletOptions = {
+    network: network.type,
+    port: network.walletPort,
+    apiKey: apiKey,
+  }
+  
+  const client = new NodeClient(clientOptions);
+  const wallet = new WalletClient(walletOptions);
+}
+
+// /**
+//  * Lock BTC up in a CTLV P2SH transaction
+//  * @param   {number}  locktime              The future block to lock until
+//  * @param   {number}  amount                The amount of BTC to lock up
+//  * @param   {string}  comsosAddress         The comsos address
+//  * @param   {object}  [unspentOutputs=None] The unspent output
+//  * @param   {object}  [network=None]        The network
+//  */
+// export const lock = async (keyring, locktime, amount, comsosAddress, unspentOutputs, network, changeAddress=undefined, changeAmount=undefined) => {
+//   const lockTxHex = createlockTx(
+//     keyring.getKeyHash(),
+//     locktime,
+//     amount,
+//     comsosAddress,
+//     unspentOutputs,
+//     network,
+//     changeAddress,
+//     changeAmount);
+//   console.log(lockTxHex);
+// };
+
+/**
+ * Create a new Bcoin wallet
+ * @param id - Wallet ID (used for storage)
+ * @param passphrase - A strong passphrase used to encrypt the wallet
+ * @param witness - Whether to use witness programs
+ * @param watchOnly - (watch-only for CLI)
+ * @param accountKey - The extended public key for the primary account in the new wallet. This value is ignored if watchOnly is false
+ */
+export const createNewWallet = async (
+  walletClient: WalletClient,
+  id: String = 'primary',
+  passphrase: String = 'password',
+  witness: Boolean = false,
+  watchOnly: Boolean = false,
+  accountKey: String,
+) => {
+  const options = {
+    passphrase: passphrase,
+    witness: witness,
+    watchOnly: watchOnly,
+    accountKey: accountKey
+  };
+
+  return await walletClient.createWallet(id, options);
 };
 
-export const createScript = (lockTime, publicKey) => {
-  return bitcoin.script.fromASM(`
-    ${bitcoin.script.number.encode(lockTime).toString('hex')}
-    OP_CHECKLOCKTIMEVERIFY
-    OP_DROP
-    OP_DUP
-    OP_HASH160
-    ${bitcoin.crypto.hash160(publicKey).toString('hex')}
-    OP_EQUALVERIFY
-    OP_CHECKSIG
-  `.trim().replace(/\s+/g, ' '))
-}
-
-export const createlockTx = (publicKey, locktime, amount, comsosAddress, unspentOutputs, network, changeAddress=undefined, changeAmount=undefined) => {
-  const redeemScript = createScript(locktime, publicKey);
-  const { address } = bitcoin.payments.p2sh({
-    redeem: {
-      output: redeemScript,
-      network: network,
-    },
-    network: network,
-  });
-
-  // const tx = new bitcoin.Transaction();
-  const psbt = new bitcoin.Psbt({ network: bitcoin.networks.regtest });
-  unspentOutputs.forEach(output => {
-    if (output.length > 0) {
-      let splitOutput = output.split('-');
-      psbt.addInput(idToHash(splitOutput[0]), Number(splitOutput[1]), 0xfffffffe);
-    }
-  });
-  // Send amount of satoshis to the P2SH time lock transaction
-  psbt.addOutput({
-    script: redeemScript,
-    address: address,
-    value: Number(amount),
-    network: network,
-  });
-  // Add OP_RETURN data field with IPFS hash
-  // OP_RETURN always with 0 value unless you want to burn coins
-  const data = new Buffer(`${comsosAddress}`);
-  const dataScript = bitcoin.payments.embed({ data: [data] });
-  psbt.addOutput({
-    script: dataScript.output,
-    value: 0,
-  });
-  // Add change address output if exists
-  if (changeAddress && changeAddress) {
-    psbt.addOutput({
-      address: changeAddress,
-      value: changeAmount
-    });
-  }
-  // Return tx hex
-  return psbt.toHex();
-}
-
-export async function createUnlockTx(key, redeemScript, unspent, network) {
-  const hashType = bitcoin.Transaction.SIGHASH_ALL;
-  const tx = new bitcoin.Transaction();
-  tx.addInput(idToHash(unspent.txId), unspent.vout, 0xfffffffe);
-  const signatureHash = tx.hashForSignature(0, redeemScript, hashType);
-  const redeemScriptSig = bitcoin.payments.p2sh({
-    redeem: {
-      input: bitcoin.script.compile([
-        bitcoin.script.signature.encode(key.sign(signatureHash), hashType),
-        key.publicKey, // CHANGE #2 
-      ]),
-      output: redeemScript,
-      network: network,
-    },
-    network: network,
-  }).input;
-  tx.setInputScript(0, redeemScriptSig)
-  const txHex = tx.toHex();
-  // Return tx hex
-  return txHex;
-}
-
-export const getPrivateKeyWIFFromEnvVar = (rawWIF, mnemonic, derivationPath, keystorePath, password) => {
-  if (rawWIF) return rawWIF;
-  if (mnemonic) {
-    if (typeof derivationPath === 'undefined') throw new Error('Please specify a derivation path for BIP32 HD keys');
-    const seed = bip39.mnemonicToSeedSync(mnemonic);
-    const node = bip32.fromSeed(seed);
-    return node.toWIF();
-  }
-
-  if (keystorePath) {
-    if (typeof password === 'undefined') throw new Error('Please specify a decryption password for the keystore data');
-    const encryptedKey = fs.readFileSync(keystorePath, 'utf8');
-    const decryptedKey = bip38.decrypt(encryptedKey, password, function (status) { console.log(status.percent) });
-    return wif.encode(0x80, decryptedKey.privateKey, decryptedKey.compressed)
-  }
-
-  throw new Error('No valid BTC key information was provided, please run the CLI with `--help`');
-}
-
-export const generateNewMnemonicKeypair = () => {
-  return bip39.generateMnemonic();
-}
-
-export const generateNewECPairKeypair = () => {
-  return bitcoin.ECPair.makeRandom().toWIF();
-};
-
-export const getNetworkSetting = (network) => {
+export const getNetworkSettings = (network) => {
   switch (network) {
     case 'regtest':
-      return bitcoin.networks.regtest;
+      return Network.get('regtest');
     case 'testnet':
-      return bitcoin.networks.testnet
+      return Network.get('testnet');
     case 'mainnet':
-      return bitcoin.networks.bitcoin;
+      return Network.get('main');
     default:
-      return bitcoin.networks.bitcoin;
+      return Network.get('main');
   }
 }
+
+export const lockAndRedeemCLTV = async (network, nodeClient, walletClient, walletId) => {
+  // We'll use this as a reference for later.
+  // to get value in satoshis all you need is `amountToFund.toValue()`;
+  const amountToFund = Amount.fromBTC('.5');
+
+  // flags are for script and transaction verification
+  const flags = Script.flags.STANDARD_VERIFY_FLAGS;
+
+  // 1) Setup keyrings
+  const keyring = KeyRing.generate(true);
+  const keyring2 = KeyRing.generate(true);
+  // can only be redeemed after the 100th block has been mined
+  const locktime = '100';
+  keyring.witness = true;
+  keyring2.witness = true;
+
+  // 2) Get hash and save it to keyring
+  const pkh = keyring.getKeyHash();
+  const script = createScript(locktime, pkh);
+  keyring.script = script;
+
+  // 3) Create the address
+  const lockingAddr = getAddress(script, network);
+
+  // 4) Create our funding transaction that sends
+  // 50,000 satoshis to our locking address
+  const cb = new MTX();
+
+  cb.addInput({
+    prevout: new Outpoint(),
+    script: new Script(),
+    sequence: 0xffffffff
+  });
+
+  // Send 50,000 satoshis to our locking address.
+  // this will lock up the funds to whoever can solve
+  // the CLTV script
+  cb.addOutput(lockingAddr, amountToFund.toValue());
+
+  // Convert the coinbase output to a Coin object
+  // In reality you might get these coins from a wallet.
+  // `fromTX` will take an output from a previous
+  // tx and turn it into a coin object
+  // (the second param is the index of the target UTXO)
+  const coin = Coin.fromTX(cb, 0, -1);
+
+  // 5) Setup the redeeming transaction
+  // Start with an empty mutable transaction
+  let mtx = new MTX();
+
+  // add our cb coin as the input (i.e. the "funding" UTXO)
+  mtx.addCoin(coin);
+
+  // get an address to send the funds from the coin to
+  const receiveAddr = keyring2.getAddress('string', network);
+
+  // value of the input minus arbitrary amount for fee
+  // normally we could do this by querying our node to estimate rate
+  // or use the `fund` method if we had other coins to spend with
+  const receiveValue = coin.value - 1000;
+  mtx.addOutput(receiveAddr, receiveValue);
+
+  // So now we have an mtx with the right input and output
+  // but our input still hasn't been signed
+  console.log('mtx:', mtx);
+
+  try {
+    const txInfoPath = './tx-info.json'; // this is where we'll persist our info
+    const wallet = walletClient.wallet(walletId); // instantiate a client for our wallet
+
+    let redeemScript, lockingAddr, locktime;
+
+    // check if file exists and if there is info saved to it
+    let txInfo = fs.existsSync(txInfoPath) ? fs.readFileSync(txInfoPath) : '';
+    if (!txInfo.length) {
+      // No saved transaction, so let's create it and then
+      // save the information for later
+
+      // Step 1: Setup wallet client and confirm balance
+      const { balance } = await wallet.getInfo();
+      assert(balance.confirmed > amountToFund.toValue(), 'Not enough funds!');
+
+      // Step 2: Setup keyring w/ pkh and create locking address
+      // that can be redeemed by our real wallet after a set locktime
+      const { publicKey, address } = await wallet.createAddress('default');
+
+      // create the keyring from the public key
+      // and get the public key hash for the locking script
+      const keyring = KeyRing.fromKey(Buffer.from(publicKey, 'hex'), true);
+      keyring.witness = true;
+      const pkh = keyring.getKeyHash();
+
+      // Get current height and set locktime to 10 blocks from now
+      const { chain: { height }} = await nodeClient.getInfo();
+      locktime = height + 10;
+
+      // create the script and address that can be redeemed by our wallet
+      redeemScript = createScript(locktime.toString(), pkh);
+      lockingAddr = getAddress(redeemScript, network);
+
+      // Step 3: use the wallet client to send funds to the locking address
+      const output = {
+        value: amountToFund.toValue(),
+        address: lockingAddr
+      };
+
+      const lockedTx = await wallet.send({ outputs: [output], rate: 7000 });
+      console.log('transaction sent to mempool');
+
+      // save the transaction information to to a file
+      txInfo = { lockedTx, lockingAddr, redeemScript, locktime, redeemAddress: address };
+      fs.writeFileSync(txInfoPath, JSON.stringify(txInfo, null, 2));
+
+      // mine one block to get tx on chain
+      // make sure you're doing this on regtest or simnet and
+      // not testnet or mainnet
+      // this method won't work if you don't have a
+      // coinbase address set on your miner
+      // you can also use bPanel and the @bpanel/simple-mining
+      // plugin to do this instead
+      const minedBlock = await nodeClient.execute('generate', [1]);
+      console.log('Block mined', minedBlock);
+    } else {
+      // if the txInfo file exists then we know we have a locked tx
+      // so let's get the information we need to start redeeming!
+      const {
+        lockedTx,
+        lockingAddr,
+        redeemScript,
+        locktime,
+        redeemAddress
+      } = JSON.parse(txInfo);
+
+      // 1) let's get the current block height to check if we can actually redeem
+      const { chain: { height }} = await nodeClient.getInfo();
+
+      // in reality this could be block height or Unix epoch time
+      assert(locktime <= height, `Too soon to redeem the UTXO. Wait until block ${locktime}`);
+
+      // Our locktime is less than or equal to height which means we can redeem
+
+      // 2) Prepare redeeming tx
+
+      // get index of utxo
+      const index = lockedTx.outputs.findIndex(
+        output => output.address === lockingAddr
+      );
+
+      // get the coin associated with our locked tx
+      // indicating the index of the UTXO
+      const coinJSON = await nodeClient.getCoin(lockedTx.hash, index);
+
+      // create a new coin object that references the UTXO we want to spend
+      // and add it as an input to a blank mutable transaction
+      const coin = Coin.fromJSON(coinJSON);
+      let mtx = new MTX();
+      mtx.addCoin(coin);
+
+      // For simplicity we'll redeem the locked tx to ourselves
+      // But if you have another wallet that might be easier
+      // since you can see the change in balance more easily
+      const { address } = await wallet.createAddress('default');
+      // send to the address the value of the coin minus the fee
+      mtx.addOutput(address, coin.value - 1500);
+
+      // set nLocktime field on transaction
+      // mempool and chain will check against this
+      // to verify finality for each input
+      mtx.setLocktime(height);
+
+      // 3) Setup a keyring to use for signing the input
+
+      // First get the script from our saved tx info
+      const script = Script.fromRaw(redeemScript, 'hex');
+
+      // Next we'll get the private key associated with the pkh
+      // that the timelocked UTXO is locked to
+      // Note it's generally not safe to transfer your private key
+      // unencrypted over the network like this, but we're doing it
+      // here for simplicity
+      const { privateKey } = await wallet.getWIF(redeemAddress);
+      const ring = KeyRing.fromSecret(privateKey, network);
+      ring.witness = true;
+      ring.script= script;
+
+      // 4) Script and sign the input
+      // Note that we can use the same methods as in the mock transaction
+      mtx = scriptInput(mtx, index, coin, ring);
+      mtx = signInput(mtx, index, coin, ring);
+
+      // 5) Verify and broadcast the tx
+      // Note that the `verify` won't check against current height
+      // of the blockchain and the node won't reject the tx but will
+      // still try and broadcast (you can check your node logs for
+      // mempool verification errors)
+      assert(mtx.verify(), 'MTX did not verify');
+      const tx = mtx.toTX();
+      assert(tx.verify(mtx.view), 'TX did not verify');
+      const raw = tx.toRaw().toString('hex');
+
+      // now we've got a signed raw transaction that we can broadcast to the network!
+      const result = await nodeClient.broadcast(raw);
+      assert(result.success, 'There was a problem broadcasting the tx');
+
+      // confirm the tx is in the mempool
+      // we need to do this because even if the mempool says there is a problem
+      // with your transaction, it will try and broadcast anyway
+      // and result will come back with `success: true`. If it made it into the
+      // mempool and/or chain and can be queried then you know it was successful
+      const txFromHash = await nodeClient.getTX(tx.rhash());
+      assert(txFromHash, 'The tx does not appear to be in the mempool or chain');
+      console.log('Success!');
+      console.log('Tx: ', tx);
+
+      // if it was successful then we can clear our saved tx info since it is now
+      // obsolete. Clearing this will re-enable the first evaluation branch above
+      fs.writeFileSync(txInfoPath, '');
+    }
+
+  } catch(e) {
+    console.error('There was an error with live solution:', e);
+  }
+};
