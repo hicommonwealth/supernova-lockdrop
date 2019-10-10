@@ -226,26 +226,16 @@ export const lockAndRedeemCLTV = async (amountToFund, network, nodeClient, walle
       // Step 2: Setup keyring w/ pkh and create locking address
       // that can be redeemed by our real wallet after a set locktime
       const { publicKey, address } = await wallet.createAddress('default');
-      console.log(publicKey, address);
       // For testing only, if the account is not funded yet
-      if (result.balance.confirmned <= 0) {
-        // Fund the account
-        const cb = new MTX();
-
-        cb.addInput({
-          prevout: new Outpoint(),
-          script: new Script(),
-          sequence: 0xffffffff,
-        });
-
-        // Send 50,000 satoshis to our locking address.
-        // this will lock up the funds to whoever can solve
-        // the CLTV script
-        cb.addOutput(lockingAddr, amountToFund.toValue());
+      if (result.balance.confirmed <= 0) {
+        // Fund the account by generating 5 blocks
+        let txids = await nodeClient.execute('generatetoaddress', [ 5, address ]);
+        // Print out the coinbase tx ids
+        console.log(txids);
       } else {
+        console.log(result.balance.confirmed, amountToFund.toValue(), result.balance.confirmed > amountToFund.toValue())
         assert(result.balance.confirmed > amountToFund.toValue(), 'Not enough funds!');
       }
-
       // create the keyring from the public key
       // and get the public key hash for the locking script
       const keyring = KeyRing.fromKey(Buffer.from(publicKey, 'hex'), true);
@@ -264,10 +254,8 @@ export const lockAndRedeemCLTV = async (amountToFund, network, nodeClient, walle
         value: amountToFund.toValue(),
         address: lockingAddr
       };
-
       const lockedTx = await wallet.send({ outputs: [output], rate: 7000 });
       console.log('transaction sent to mempool');
-
       // save the transaction information to to a file
       fs.writeFileSync(txInfoPath, JSON.stringify({
         lockedTx,
@@ -284,7 +272,7 @@ export const lockAndRedeemCLTV = async (amountToFund, network, nodeClient, walle
       // coinbase address set on your miner
       // you can also use bPanel and the @bpanel/simple-mining
       // plugin to do this instead
-      const minedBlock = await nodeClient.execute('generate', [1]);
+      const minedBlock = await nodeClient.execute('generate', [11, address]);
       console.log('Block mined', minedBlock);
     } else {
       // if the txInfo file exists then we know we have a locked tx
