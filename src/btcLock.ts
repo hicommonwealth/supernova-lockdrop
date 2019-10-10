@@ -264,16 +264,17 @@ export const lockAndRedeemCLTV = async (amountToFund, network, nodeClient, walle
         locktime,
         redeemAddress: address
       }, null, 2));
-
-      // mine one block to get tx on chain
-      // make sure you're doing this on regtest or simnet and
-      // not testnet or mainnet
-      // this method won't work if you don't have a
-      // coinbase address set on your miner
-      // you can also use bPanel and the @bpanel/simple-mining
-      // plugin to do this instead
-      const minedBlock = await nodeClient.execute('generate', [11, address]);
-      console.log('Block mined', minedBlock);
+      if (network.type === 'regtest') {
+        // mine one block to get tx on chain
+        // make sure you're doing this on regtest or simnet and
+        // not testnet or mainnet
+        // this method won't work if you don't have a
+        // coinbase address set on your miner
+        // you can also use bPanel and the @bpanel/simple-mining
+        // plugin to do this instead
+        const minedBlock = await nodeClient.execute('generate', [1, address]);
+        console.log('Block mined', minedBlock);
+      }
     } else {
       // if the txInfo file exists then we know we have a locked tx
       // so let's get the information we need to start redeeming!
