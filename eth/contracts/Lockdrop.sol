@@ -26,17 +26,13 @@ contract Lock {
 }
 
 contract Lockdrop {
-    enum Term {
-        ThreeMo,
-        SixMo,
-        TwelveMo
-    }
     // Time constants
-    uint256 constant public LOCK_DROP_PERIOD = 1 days * 92; // 3 months
+    uint256 constant public LOCK_LENGTH_TERM = 1 days * 182;
+    uint256 constant public LOCK_DROP_PERIOD = 1 days * 182;
     uint256 public LOCK_START_TIME;
     uint256 public LOCK_END_TIME;
     // ETH locking events
-    event Locked(address indexed owner, uint256 eth, Lock lockAddr, Term term, bytes cosmosAddr, uint time);
+    event Locked(address indexed owner, uint256 eth, Lock lockAddr, bytes cosmosAddr, uint time);
     
     constructor(uint startTime) public {
         LOCK_START_TIME = startTime;
@@ -48,32 +44,24 @@ contract Lockdrop {
      * @param      term         The length of the lock up
      * @param      cosmosAddr   The bytes representation of the target cosmos key
      */
-    function lock(Term term, bytes calldata cosmosAddr)
+    function lock(bytes calldata cosmosAddr)
         external
         payable
         didStart
         didNotEnd
     {
         // Create ETH lock contract
-        Lock lockAddr = (new Lock).value(msg.value)(msg.sender, unlockTimeForTerm(term));
+        Lock lockAddr = (new Lock).value(msg.value)(msg.sender, now + LOCK_LENGTH_TERM);
         // ensure lock contract has at least all the ETH, or fail
         assert(address(lockAddr).balance >= msg.value);
-        emit Locked(msg.sender, msg.value, lockAddr, term, cosmosAddr, now);
-    }
-
-    function unlockTimeForTerm(Term term) internal view returns (uint256) {
-        if (term == Term.ThreeMo) return now + 92 days;
-        if (term == Term.SixMo) return now + 183 days;
-        if (term == Term.TwelveMo) return now + 365 days;
-        
-        revert();
+        emit Locked(msg.sender, msg.value, lockAddr, cosmosAddr, now);
     }
 
     /**
      * @dev        Ensures the lockdrop has started
      */
     modifier didStart() {
-        require(now >= LOCK_START_TIME);
+        require(now >= LOCK_START_TIME, 'Lockdrop has not started');
         _;
     }
 
@@ -81,7 +69,7 @@ contract Lockdrop {
      * @dev        Ensures the lockdrop has not ended
      */
     modifier didNotEnd() {
-        require(now <= LOCK_END_TIME);
+        require(now <= LOCK_END_TIME, 'Lockdrop has ended');
         _;
     }
 }

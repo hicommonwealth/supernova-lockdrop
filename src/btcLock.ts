@@ -2,9 +2,10 @@ import {
   Amount, Coin, KeyRing, MTX, Network,
   Outpoint, Script, ScriptNum, Stack
 } from 'bcoin';
+import bcoin from 'bcoin';
 import { WalletClient, NodeClient } from 'bclient';
 import fs from 'fs';
-
+import * as ipfs from './ipfsUtil';
 import assert from 'assert';
 
 /**
@@ -29,24 +30,18 @@ export const createScript = (locktime, publicKeyHash) => {
   script.pushNum(ScriptNum.fromString(locktime.toString(), 10));
   // check the locktime
   script.pushSym('CHECKLOCKTIMEVERIFY');
-  // if verifies, drop time from the stack
-  script.pushSym('drop');
-  // duplicate item on the top of the stack
-  // which should be.the public key
-  script.pushSym('dup');
-  // hash the top item from the stack (the public key)
-  script.pushSym('hash160')
-  // push the hash to the top of the stack
-  script.pushData(pkh);
-  // confirm they match
-  script.pushSym('equalverify');
-  // confirm the signature matches
-  script.pushSym('checksig');
-  // Compile the script to its binary representation
-  // (you must do this if you change something!).
   script.compile();
   return script;
 }
+
+export const createOpReturnScript = (data) => {
+  const script = new Script();
+  script.pushSym('OP_RETURN');
+  script.pushSym('OP_PUSHDATA2');
+  script.pushData(data);
+  script.compile();
+  return script;
+};
 
 /**
  * @param {Script} script to get corresponding address for
@@ -136,39 +131,18 @@ export const setupBcoin = (network, apiKey) => {
     port: network.rpcPort,
     apiKey: apiKey,
   }
-  
+
   const walletOptions = {
     network: network.type,
     port: network.walletPort,
     apiKey: apiKey,
   }
-  
+
   const nodeClient = new NodeClient(clientOptions);
   const walletClient = new WalletClient(walletOptions);
 
   return { nodeClient, walletClient };
 }
-
-// /**
-//  * Lock BTC up in a CTLV P2SH transaction
-//  * @param   {number}  locktime              The future block to lock until
-//  * @param   {number}  amount                The amount of BTC to lock up
-//  * @param   {string}  comsosAddress         The comsos address
-//  * @param   {object}  [unspentOutputs=None] The unspent output
-//  * @param   {object}  [network=None]        The network
-//  */
-// export const lock = async (keyring, locktime, amount, comsosAddress, unspentOutputs, network, changeAddress=undefined, changeAmount=undefined) => {
-//   const lockTxHex = createlockTx(
-//     keyring.getKeyHash(),
-//     locktime,
-//     amount,
-//     comsosAddress,
-//     unspentOutputs,
-//     network,
-//     changeAddress,
-//     changeAmount);
-//   console.log(lockTxHex);
-// };
 
 /**
  * Create a new Bcoin wallet
@@ -209,7 +183,7 @@ export const getNetworkSettings = (network) => {
   }
 }
 
-export const lockAndRedeemCLTV = async (amountToFund, network, nodeClient, walletClient, walletId, walletAccount) => {
+export const lockAndRedeemCLTV = async (multiAddr, cosmosAddress, amountToFund, network, nodeClient, walletClient, walletId, walletAccount) => {
   try {
     const txInfoPath = './tx-info.json'; // this is where we'll persist our info
     const wallet = walletClient.wallet(walletId); // instantiate a client for our wallet
@@ -254,7 +228,21 @@ export const lockAndRedeemCLTV = async (amountToFund, network, nodeClient, walle
         value: amountToFund.toValue(),
         address: lockingAddr
       };
-      const lockedTx = await wallet.send({ outputs: [output], rate: 7000 });
+
+      const ipfsData = JSON.stringify({
+        comsosAddress: cosmosAddress,
+        lockingAddr,
+        redeemScript,
+        locktime,
+        redeemAddress: address
+      });
+
+      const ipfsHash = await ipfs.sendData(multiAddr, ipfsData);
+      const buf = Buffer.from(ipfsHash);
+      const nullScript = bcoin.Script.fromNulldata(buf)
+      const nullOutput = bcoin.Output.fromScript(nullScript, 0);
+
+      const lockedTx = await wallet.send({ outputs: [output, nullOutput], rate: 7000 });
       console.log('transaction sent to mempool');
       // save the transaction information to to a file
       fs.writeFileSync(txInfoPath, JSON.stringify({
@@ -272,8 +260,8 @@ export const lockAndRedeemCLTV = async (amountToFund, network, nodeClient, walle
         // coinbase address set on your miner
         // you can also use bPanel and the @bpanel/simple-mining
         // plugin to do this instead
-        const minedBlock = await nodeClient.execute('generate', [1, address]);
-        console.log('Block mined', minedBlock);
+        const minedBlocks = await nodeClient.execute('generate', [1000, address]);
+        console.log('Block mined', minedBlocks);
       }
     } else {
       // if the txInfo file exists then we know we have a locked tx

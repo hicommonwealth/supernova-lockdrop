@@ -1,6 +1,6 @@
 import ipfsClient from 'ipfs-http-client';
 
-export const setupIPFSClient = async (data = 'testing', multiAddr = '/ip4/127.0.0.1/tcp/5002') => {
+export const sendData = async (multiAddr = '/ip4/127.0.0.1/tcp/5002', data = 'testing') => {
   if (typeof data !== 'string') {
     data = JSON.stringify(data);
   }
@@ -8,5 +8,5 @@ export const setupIPFSClient = async (data = 'testing', multiAddr = '/ip4/127.0.
   const ipfs = ipfsClient(multiAddr);
   const results = await ipfs.add(Buffer.from(data));
   console.log(results);
-  return results;
+  return results[0].path;
 }
