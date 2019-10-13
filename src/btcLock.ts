@@ -37,15 +37,6 @@ export const createScript = (locktime, publicKeyHash) => {
   return script;
 }
 
-export const createOpReturnScript = (data) => {
-  const script = new Script();
-  script.pushSym('OP_RETURN');
-  script.pushSym('OP_PUSHDATA2');
-  script.pushData(data);
-  script.compile();
-  return script;
-};
-
 /**
  * @param {Script} script to get corresponding address for
  * @param {Network} to determine encoding based on network
