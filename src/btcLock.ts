@@ -16,7 +16,7 @@ import { PassThrough } from 'stream';
  * @param {Buffer} public key hash
  * @returns {Script}
 **/
-export const createScript = (locktime, publicKeyHash) => {
+function createScript(locktime, publicKeyHash) {
   let pkh;
   if (typeof publicKeyHash === 'string')
     pkh = Buffer.from(publicKeyHash);
@@ -33,6 +33,21 @@ export const createScript = (locktime, publicKeyHash) => {
   script.pushNum(ScriptNum.fromString(locktime.toString(), 10));
   // check the locktime
   script.pushSym('CHECKLOCKTIMEVERIFY');
+  // if verifies, drop time from the stack
+  script.pushSym('drop');
+  // duplicate item on the top of the stack
+  // which should be.the public key
+  script.pushSym('dup');
+  // hash the top item from the stack (the public key)
+  script.pushSym('hash160')
+  // push the hash to the top of the stack
+  script.pushData(pkh);
+  // confirm they match
+  script.pushSym('equalverify');
+  // confirm the signature matches
+  script.pushSym('checksig');
+  // Compile the script to its binary representation
+  // (you must do this if you change something!).
   script.compile();
   return script;
 }
@@ -417,14 +432,15 @@ export const lockAndRedeemCLTV = async (
 
       // 4) Script and sign the input
       // Note that we can use the same methods as in the mock transaction
-      mtx = scriptInput(mtx, index, coin, keyring);
-      mtx = signInput(mtx, index, coin, keyring);
+      mtx = scriptInput(mtx, 0, coin, keyring);
+      mtx = signInput(mtx, 0, coin, keyring);
 
       // 5) Verify and broadcast the tx
       // Note that the `verify` won't check against current height
       // of the blockchain and the node won't reject the tx but will
       // still try and broadcast (you can check your node logs for
       // mempool verification errors)
+      console.log(mtx.check());
       assert(mtx.verify(), 'MTX did not verify');
       const tx = mtx.toTX();
       assert(tx.verify(mtx.view), 'TX did not verify');
