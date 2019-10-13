@@ -7,6 +7,11 @@ describe('bitcoin locks', () => {
   const amount = Amount.fromBTC('.5');
   const multiAddress = undefined;
   const cosmosAddress = '0x01';
+  const locktime = undefined;
+  const usingLedger = false;
+  const ledgerKeyPurpose = 44;
+  const ledgerKeyCoinType = 0;
+  const ledgerKeyDPath = 0;
 
   it('should use the lockAndRedeem script', async () => {
     const { nodeClient, walletClient } = btc.setupBcoin(network, 'test');
@@ -18,7 +23,11 @@ describe('bitcoin locks', () => {
       nodeClient,
       walletClient,
       'primary',
-      'default'
+      locktime,
+      usingLedger,
+      ledgerKeyPurpose,
+      ledgerKeyCoinType,
+      ledgerKeyDPath,
     );
   });
 });

@@ -7,6 +7,7 @@ export const sendData = async (multiAddr = '/ip4/127.0.0.1/tcp/5002', data = 'te
 
   const ipfs = ipfsClient(multiAddr);
   const results = await ipfs.add(Buffer.from(data));
+  console.log(`IPFS.add: ${data}`);
   console.log(results);
   return results[0].path;
 }
