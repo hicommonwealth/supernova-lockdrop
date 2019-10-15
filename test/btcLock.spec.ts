@@ -1,5 +1,7 @@
 import * as btc from '../src/btcLock';
-import { Amount, Network } from 'bcoin';
+import { Amount, Network, KeyRing, Address } from 'bcoin';
+import bledger from 'bledger';
+import Logger from 'blgr';
 import assert from 'assert';
 
 describe('bitcoin locks', () => {
@@ -30,4 +32,49 @@ describe('bitcoin locks', () => {
       ledgerKeyDPath,
     );
   });
+
+  it.only('should test the ledger', async () => {
+    const { nodeClient, walletClient } = btc.setupBcoin(network, 'test');
+    walletClient.rescan(10000);
+    const device = await btc.getLedgerDevice();
+    const hd = await btc.getLedgerHD(
+      device,
+      ledgerKeyPurpose,
+      ledgerKeyCoinType,
+      ledgerKeyDPath,
+    );
+    let account = 'default';
+    let watchId = 'watchonly1';
+    let keyring = KeyRing.fromPublic(hd.publicKey, network);
+    keyring.witness = true;
+    let pkh = keyring.getKeyHash();
+    let redeemAddress = keyring.getAddress();
+    console.log(redeemAddress.toBase58(network));
+
+    let watchWallet;
+    try {
+      watchWallet = await btc.createNewWallet(
+        walletClient,
+        watchId,
+        'password',
+        true,
+        true,
+        hd.xpubkey(network));
+    } catch (e) {
+      watchWallet = walletClient.wallet(watchId);
+    }
+    let addr;
+    const res = await watchWallet.createAddress(account);
+    console.log(res);
+    try {
+      addr = await watchWallet.createAccount(account);
+    } catch (e) {
+      addr = await watchWallet.getAccount(account);
+    }
+    console.log(addr);
+    const coins = await watchWallet.getCoins();
+    console.log(coins);
+    const balance = await watchWallet.getBalance();
+    console.log(balance);
+  }).timeout(20000);
 });

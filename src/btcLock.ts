@@ -1,7 +1,4 @@
-import {
-  Amount, Coin, KeyRing, MTX, Network,
-  Outpoint, Script, ScriptNum, Stack
-} from 'bcoin';
+import { Amount, Coin, KeyRing, MTX, Network, Script, ScriptNum, Stack } from 'bcoin';
 import bcoin from 'bcoin';
 import { WalletClient, NodeClient } from 'bclient';
 import bledger from 'bledger';
@@ -9,7 +6,6 @@ import Logger from 'blgr';
 import fs from 'fs';
 import * as ipfs from './ipfsUtil';
 import assert from 'assert';
-import { PassThrough } from 'stream';
 
 /**
  * @param {String} locktime - Time that the script can not be redeemed before
@@ -199,17 +195,22 @@ export const addToIPFS = async (
   locktime: Number,
   redeemAddress: string,
 ): Promise<Buffer> => {
-  const ipfsData = JSON.stringify({
-    cosmosAddress,
-    lockingAddr,
-    redeemScript,
-    locktime,
-    redeemAddress,
-  });
+  try {
+    const ipfsData = JSON.stringify({
+      cosmosAddress,
+      lockingAddr,
+      redeemScript,
+      locktime,
+      redeemAddress,
+    });
 
-  const ipfsHash = await ipfs.sendData(multiAddr, ipfsData);
-  const buf = Buffer.from(ipfsHash);
-  return buf;
+    const ipfsHash = await ipfs.sendData(multiAddr, ipfsData);
+    const buf = Buffer.from(ipfsHash);
+    return buf;
+  } catch (e) {
+    console.log('You must connect to a local or remote IPFS node to store data');
+    throw new Error(e);
+  }
 }
 
 export const deriveAddress = async (hd, change, index, network): Promise<String> => {
@@ -219,21 +220,29 @@ export const deriveAddress = async (hd, change, index, network): Promise<String>
   return keyring.getAddress().toString();
 };
 
-export const getLedgerPublicKey = async (purpose, coinType, dPath, logger): Promise<any> => {
-  const { LedgerBcoin } = bledger;
-  const { Device } = bledger.USB;  
+export const getLedgerDevice = async () => {
+  // Setup logging for ledger
+  const logger = new Logger({
+    console: true,
+    level: 'info'
+  });
+  const { Device } = bledger.USB;
   // get first device available.
   const device = await Device.requestDevice();
   device.set({
     timeout: 5000,
     logger,
   });
+  // open device and return the object afterwards
   await device.open();
+  return device;
+}
+
+export const getLedgerHD = async (device, purpose, coinType, dPath): Promise<any> => {
+  const { LedgerBcoin } = bledger;
   const accountPath = `m/${purpose}'/${coinType}'/${dPath}'`;
   const ledgerBcoin = new LedgerBcoin({ device });
-  const pk = await ledgerBcoin.getPublicKey(accountPath);
-  await device.close();
-  return pk;
+  return await ledgerBcoin.getPublicKey(accountPath);
 };
 
 export const writeTxToFile = (txInfoPath, lockedTx, lockingAddr, redeemScript, locktime, redeemAddress) => {
@@ -272,7 +281,7 @@ export const getPublicKeyAndRedeem = async (
     });
     await logger.open();
     // Setup public key ring from passed in path or base, default path
-    const hd = await getLedgerPublicKey(purpose, coinType, dPath, logger);
+    const hd = await getLedgerHD(purpose, coinType, dPath, logger);
     keyring = KeyRing.fromPublic(hd.publicKey);
     keyring.witness = true;
     pkh = keyring.getKeyHash();
