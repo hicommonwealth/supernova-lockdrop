@@ -1,4 +1,4 @@
-import { Amount, Coin, KeyRing, MTX, Network, Script, ScriptNum, Stack } from 'bcoin';
+import { Amount, Coin, KeyRing, MTX, Network, Script, ScriptNum, Stack, Wallet, Address } from 'bcoin';
 import bcoin from 'bcoin';
 import { WalletClient, NodeClient } from 'bclient';
 import bledger from 'bledger';
@@ -238,9 +238,8 @@ export const getLedgerDevice = async () => {
   return device;
 }
 
-export const getLedgerHD = async (device, purpose, coinType, dPath): Promise<any> => {
+export const getLedgerHD = async (device, accountPath): Promise<any> => {
   const { LedgerBcoin } = bledger;
-  const accountPath = `m/${purpose}'/${coinType}'/${dPath}'`;
   const ledgerBcoin = new LedgerBcoin({ device });
   return await ledgerBcoin.getPublicKey(accountPath);
 };
@@ -259,66 +258,105 @@ export const writeTxToFile = (txInfoPath, lockedTx, lockingAddr, redeemScript, l
 export interface IScriptData {
   pkh: string;
   redeemAddress: string;
-}
+  wallet: Wallet,
+  device: any,
+  hd: any,
+};
 
 export const getPublicKeyAndRedeem = async (
   usingLedger: Boolean,
-  purpose: Number,
-  coinType: Number,
-  dPath: Number,
+  accountPath: string,
   network: Network,
   walletClient: WalletClient,
   nodeClient: NodeClient,
   walletId: string,
   amountToFund: Amount,
+  account: string,
+  password: string,
 ): Promise<IScriptData> => {
-  let keyring, pkh, redeemAddress;
+  let device;
+  // first grab device if we are using the ledger
   if (usingLedger) {
-    // Setup logging for ledger
-    const logger = new Logger({
-      console: true,
-      level: 'info'
-    });
-    await logger.open();
-    // Setup public key ring from passed in path or base, default path
-    const hd = await getLedgerHD(purpose, coinType, dPath, logger);
-    keyring = KeyRing.fromPublic(hd.publicKey);
-    keyring.witness = true;
-    pkh = keyring.getKeyHash();
-    redeemAddress = keyring.getAddress('default');
-  } else {
-    const wallet = walletClient.wallet(walletId); // instantiate a client for our wallet
-    // Step 1: Setup wallet client and confirm balance
-    const result = await wallet.getInfo();
-    // Step 2: Setup keyring w/ pkh and create locking address
-    // that can be redeemed by our real wallet after a set locktime
-    const { publicKey, address } = await wallet.createAddress('default');
-    redeemAddress = address;
-    // For testing only, if the account is not funded yet
-    if (result.balance.confirmed <= 0 && network.type === 'regtest') {
-      // Fund the account by generating 5 blocks
-      await nodeClient.execute('generatetoaddress', [ 101, address ]);
+    device = await getLedgerDevice();
+  }
+  // init the wallet
+  let wallet = walletClient.wallet(walletId);
+  // check if the wallet exists by getting info
+  let info = await wallet.getInfo();
+  if (!info) {
+    // if it doesn't exist create wallet based on ledger presence
+    if (usingLedger) {
+      const hd = await getLedgerHD(device, accountPath);
+      wallet = await createNewWallet(
+        walletClient,
+        walletId,
+        password,
+        true,
+        true,
+        hd.xpubkey(network));
     } else {
-      assert(result.balance.confirmed > amountToFund.toValue(), 'Not enough funds!');
+      throw new Error(`You must create a wallet with id ${walletId} at account ${account} or use an existing wallet`);
     }
-    // create the keyring from the public key
-    // and get the public key hash for the locking script
-    keyring = KeyRing.fromKey(Buffer.from(publicKey, 'hex'), true);
-    keyring.witness = true;
-    pkh = keyring.getKeyHash();
   }
 
-  return { pkh, redeemAddress};
+  let result = await wallet.getInfo();
+  const { publicKey, address } = await wallet.createAddress(account);
+  // For testing only, if the account is not funded yet
+  if (result.balance.confirmed <= 0 && network.type === 'regtest') {
+    // Fund the account by generating 5 blocks
+    await nodeClient.execute('generatetoaddress', [ 101, address ]);
+    result = await wallet.getInfo();
+  }
+  // Assert the account has necessary balance
+  assert(result.balance.confirmed > amountToFund.toValue(), 'Not enough funds!');
+  // create the keyring from the public key and get the public key hash for the locking script
+  const keyring = KeyRing.fromKey(Buffer.from(publicKey, 'hex'), true);
+  keyring.witness = true;
+  // return the pkh and redeemAddress to be input into the lock script
+  return {
+    pkh: keyring.getKeyHash(),
+    redeemAddress: address,
+    wallet,
+    device,
+    hd,
+  };
 }
 
-export const sendTxUsingWallet = async (walletClient: WalletClient, walletId: String, outputs: any[]) => {
-  const wallet = walletClient.wallet(walletId); // instantiate a client for our wallet
+export const sendTxUsingWallet = async (wallet, outputs: any[]) => {
   return await wallet.send({ outputs, rate: 7000 });
 };
 
-export const sendTxUsingLedger = async (outputs: any[]) => {
+export const sendTxUsingLedger = async (wallet, device, outputs: any[], account, hd, accountPath, network) => {
   const { LedgerBcoin, LedgerTXInput } = bledger;
-  const { Device } = bledger.USB;
+  const ledgerBcoin = new LedgerBcoin({ device });
+  console.log('here');
+  // create mutable tx
+  let mtx = new MTX();
+  // add outputs
+  outputs.forEach(o => mtx.addOutput);
+  // get coins from the watch only wallet
+  const coins = await wallet.getCoins();
+  const change = await wallet.createChange(account);
+  // fund tx with coins, use change address for all coins
+  // TODO: Decide if we only want a subset of coins
+  mtx.fund(coins, {
+    changeAddress: Address.fromString(change.address, network).toBase58(),
+  });
+  // let ledgerInputs = [];
+  // for (const tx of txs) {
+  //   const ledgerInput = new LedgerTXInput({
+  //     witness: true,
+  //     tx: tx,
+  //     index: 0,
+  //     path: accountPath,
+  //     publicKey: hd.publicKey
+  //   });
+
+    ledgerInputs.push(ledgerInput);
+  }
+
+  const tx = await wallet.createTX({ outputs, rate: 7000 });
+  console.log(tx);
   return {};
 };
 
@@ -335,6 +373,8 @@ export const lockAndRedeemCLTV = async (
   purpose: Number = 44,
   coinType: Number = 0,
   dPath: Number = 0,
+  account: string,
+  password: string,
 ): Promise<any> => {
   try {
     const txInfoPath = './tx-info.json'; // this is where we'll persist our info
@@ -346,19 +386,18 @@ export const lockAndRedeemCLTV = async (
     if (!txInfo.length) {
       // No saved transaction, so let's create it and then save the information for later
       console.log('No TX found, creating a new CLTV tx');
-
-      const { pkh, redeemAddress } = await getPublicKeyAndRedeem(
+      const accountPath = `m/${purpose}'/${coinType}'/${dPath}'`;
+      const { pkh, redeemAddress, wallet, device, hd } = await getPublicKeyAndRedeem(
         usingLedger,
-        purpose,
-        coinType,
-        dPath,
+        accountPath,
         network,
         walletClient,
         nodeClient,
         walletId,
-        amountToFund
+        amountToFund,
+        account,
+        password,
       );
-
       // For testing, if no locktime is provided use 10 blocks ahead
       if (!locktime && network.type === 'regtest') {
         // Get current height and set locktime to 10 blocks from now
@@ -367,13 +406,12 @@ export const lockAndRedeemCLTV = async (
       } else {
         if (!locktime) throw new Error('You must provide a valid locktime');
       }
-
       // create the script and address that can be redeemed by our wallet
       redeemScript = createScript(locktime.toString(), pkh);
       lockingAddr = getAddress(redeemScript, network);
-
+      // add data to IPFS for later querying
       const buf = await addToIPFS(multiAddr, cosmosAddress, lockingAddr, redeemScript, locktime, redeemAddress);
-      // Create funding output and OP_RETURN output with IPFS hash
+      // create funding output and OP_RETURN output with IPFS hash
       const nullScript = bcoin.Script.fromNulldata(buf)
       const nullOutput = bcoin.Output.fromScript(nullScript, 0);
       const outputs = [nullOutput, {
@@ -383,9 +421,19 @@ export const lockAndRedeemCLTV = async (
 
       let lockedTx;
       if (usingLedger) {
-        lockedTx = await sendTxUsingLedger(outputs);
+        console.log(`Using the ledger wallet with id ${walletId}, account ${account}`);
+        lockedTx = await sendTxUsingLedger(
+          wallet,
+          device,
+          outputs,
+          account,
+          hd,
+          accountPath,
+          network
+        );
       } else {
-        lockedTx = await sendTxUsingWallet(walletClient, walletId, outputs);
+        console.log(`Using the local wallet with id ${walletId}, account ${account}`);
+        lockedTx = await sendTxUsingWallet(wallet, outputs);
       }
       console.log('transaction sent to mempool');
       writeTxToFile(txInfoPath, lockedTx, lockingAddr, redeemScript, locktime, redeemAddress);
