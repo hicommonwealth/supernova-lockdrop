@@ -41,7 +41,6 @@ contract Lockdrop {
 
     /**
      * @dev        Locks up the value sent to contract in a new Lock
-     * @param      term         The length of the lock up
      * @param      cosmosAddr   The bytes representation of the target cosmos key
      */
     function lock(bytes calldata cosmosAddr)

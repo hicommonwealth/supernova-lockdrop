@@ -8,9 +8,6 @@ const Lockdrop = artifacts.require("./Lockdrop.sol");
 
 contract('Lockdrop-1', (accounts) => {
   const SECONDS_IN_DAY = 86400;
-  const THREE_MONTHS = 0;
-  const SIX_MONTHS = 1;
-  const TWELVE_MONTHS = 2;
 
   let lockdrop;
 
@@ -23,19 +20,18 @@ contract('Lockdrop-1', (accounts) => {
     let time = await utility.getCurrentTimestamp(web3);
     let LOCK_DROP_PERIOD = (await lockdrop.LOCK_DROP_PERIOD()).toNumber();
     let LOCK_START_TIME = (await lockdrop.LOCK_START_TIME()).toNumber();
-    assert.equal(LOCK_DROP_PERIOD, SECONDS_IN_DAY * 92);
+    assert.equal(LOCK_DROP_PERIOD, SECONDS_IN_DAY * 182);
     assert.ok(LOCK_START_TIME <= time && time <= LOCK_START_TIME + 1000);
   });
 
   it('should lock funds and also be a potential validator', async function () {
-    await lockdrop.lock(THREE_MONTHS, accounts[1], true, {
+    await lockdrop.lock(accounts[1], {
       from: accounts[1],
       value: 1,
     });
 
     const lockEvents = await ldHelpers.getLocks(lockdrop, accounts[1]);
     assert.equal(lockEvents.length, 1);
-    assert.equal(lockEvents[0].args.isValidator, true);
     const lockStorages = await Promise.all(lockEvents.map(event => {
       return ldHelpers.getLockStorage(web3, event.returnValues.lockAddr);
     }));
@@ -45,7 +41,7 @@ contract('Lockdrop-1', (accounts) => {
 
   it('should unlock the funds after the lock period has ended', async function () {
     const balBefore = await utility.getBalance(accounts[1], web3);
-    let txHash = await lockdrop.lock(THREE_MONTHS, accounts[1], true, {
+    let txHash = await lockdrop.lock(accounts[1], {
       from: accounts[1],
       value: web3.utils.toWei('1', 'ether'),
     });
@@ -77,27 +73,27 @@ contract('Lockdrop-1', (accounts) => {
   it('should not allow one to lock before the lock start time', async function () {
     let time = await utility.getCurrentTimestamp(web3);
     const newLockdrop = await Lockdrop.new(time + SECONDS_IN_DAY * 10);
-    utility.assertRevert(newLockdrop.lock(THREE_MONTHS, accounts[1], true, {
+    utility.assertRevert(newLockdrop.lock(accounts[1], {
       from: accounts[1],
       value: web3.utils.toWei('1', 'ether'),
     }));
   });
 
   it('should not allow one to lock after the lock start time', async function () {
-    await lockdrop.lock(THREE_MONTHS, accounts[1], true, {
+    await lockdrop.lock(accounts[1], {
       from: accounts[1],
       value: web3.utils.toWei('1', 'ether'),
     });
 
     utility.advanceTime(SECONDS_IN_DAY * 15, web3);
-    utility.assertRevert(lockdrop.lock(THREE_MONTHS, accounts[1], true, {
+    utility.assertRevert(lockdrop.lock(accounts[1], {
       from: accounts[1],
       value: web3.utils.toWei('1', 'ether'),
     }));
   });
 
   it('should not allow one to lock up any different length than 3,6,12 months', async function () {
-    utility.assertRevert(lockdrop.lock(3, accounts[1], true, {
+    utility.assertRevert(lockdrop.lock(accounts[1], {
       from: accounts[1],
       value: web3.utils.toWei('1', 'ether'),
     }));
@@ -106,7 +102,7 @@ contract('Lockdrop-1', (accounts) => {
   it('should fail to withdraw funds if not enough gas is sent', async function () {
     let time = await utility.getCurrentTimestamp(web3);
     const newLockdrop = await Lockdrop.new(time);
-    await newLockdrop.lock(THREE_MONTHS, accounts[1], true, {
+    await newLockdrop.lock(accounts[1], {
       from: accounts[1],
       value: web3.utils.toWei('1', 'ether'),
     });
