@@ -299,7 +299,6 @@ export const getPublicKeyAndRedeem = async (
   // init the wallet
   wallet = walletClient.wallet(walletId);
   let { balance } = await wallet.getInfo();
-  console.log(balance);
   let publicKey, address;
   const redeemInfoPath = 'redeem-info.json';
   let redeemInfo = fs.existsSync(redeemInfoPath) ? fs.readFileSync(redeemInfoPath) : '';
@@ -313,7 +312,6 @@ export const getPublicKeyAndRedeem = async (
     address = res.address;
     fs.writeFileSync('redeem-info.json', JSON.stringify({ publicKey, address }));
   }
-  console.log(address, publicKey);
   // For testing only, if the account is not funded yet
   if (balance.confirmed <= amountToFund.toValue() && network.type === 'regtest') {
     // Fund the account by generating blocks
@@ -322,7 +320,6 @@ export const getPublicKeyAndRedeem = async (
     balance = result.balance;
   }
   // Assert the account has necessary balance
-  console.log(balance)
   assert(balance.confirmed > amountToFund.toValue(), 'Not enough funds!');
   // create the keyring from the public key and get the public key hash for the locking script
   const keyring = KeyRing.fromKey(Buffer.from(publicKey, 'hex'), true);
@@ -363,7 +360,7 @@ export const sendTxUsingLedger = async (wallet, device, outputs, account, hd, ac
     runningAmount += coin.value;
     const result = await wallet.getTX(coin.hash);
     console.log('\n\n');
-    console.log(result.outputs);
+    console.log(result);
     console.log('\n\n');
     let txFromRaw = TX.fromRaw(Buffer.from(result.tx, 'hex'));
     result.outputs.forEach((out, inx) => {
@@ -372,6 +369,7 @@ export const sendTxUsingLedger = async (wallet, device, outputs, account, hd, ac
           witness: true,
           tx: txFromRaw,
           index: inx,
+          redeem: txFromRaw.outputs[inx].script,
           path: out.path.derivation,
           publicKey: hd.publicKey,
         });
@@ -384,14 +382,11 @@ export const sendTxUsingLedger = async (wallet, device, outputs, account, hd, ac
   }
   // fund tx with coins, use change address for leftover
   await mtx.fund(ledgerCoins, {
-    subtractFee: true,
     changeAddress: change.address,
   });
   console.log(mtx);
   const result = await mtx.check();
-  console.log(result);
   const r = await ledgerBcoin.signTransaction(mtx, ledgerInputs);
-  console.log(r);
   return {};
 };
 
