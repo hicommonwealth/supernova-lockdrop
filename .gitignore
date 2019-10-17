@@ -59,6 +59,7 @@ typings/
 
 # btc tx-info for timelocks
 tx-info.json
+redeem-info.json
 
 # next.js build output
 .next
