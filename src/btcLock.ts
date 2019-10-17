@@ -341,7 +341,7 @@ export const sendTxUsingWallet = async (wallet, outputs: any[]) => {
   return await wallet.send({ outputs, rate: 7000 });
 };
 
-export const sendTxUsingLedger = async (wallet, device, outputs, account, hd, accountPath, network, amountToFund) => {
+export const sendTxUsingLedger = async (wallet, device, outputs, account, hd, accountPath, amountToFund) => {
   const { LedgerBcoin, LedgerTXInput } = bledger;
   const ledgerBcoin = new LedgerBcoin({ device });
   // create mutable tx
@@ -362,16 +362,25 @@ export const sendTxUsingLedger = async (wallet, device, outputs, account, hd, ac
     if (runningAmount >= amount) break;
     runningAmount += coin.value;
     const result = await wallet.getTX(coin.hash);
+    console.log('\n\n');
+    console.log(result.outputs);
+    console.log('\n\n');
     let txFromRaw = TX.fromRaw(Buffer.from(result.tx, 'hex'));
-    const ledgerInput = new LedgerTXInput({
-      witness: true,
-      tx: txFromRaw,
-      index: 0,
-      path: accountPath,
-      publicKey: hd.publicKey,
+    result.outputs.forEach((out, inx) => {
+      if (out.value > 0) {
+        const ledgerInput = new LedgerTXInput({
+          witness: true,
+          tx: txFromRaw,
+          index: inx,
+          path: out.path.derivation,
+          publicKey: hd.publicKey,
+        });
+        ledgerInputs.push(ledgerInput);
+      }
     });
+
     ledgerCoins.push(Coin.fromJSON(coin));
-    ledgerInputs.push(ledgerInput);
+    
   }
   // fund tx with coins, use change address for leftover
   await mtx.fund(ledgerCoins, {
@@ -455,7 +464,6 @@ export const lockAndRedeemCLTV = async (
           account,
           hd,
           accountPath,
-          network,
           amountToFund,
         );
       } else {
