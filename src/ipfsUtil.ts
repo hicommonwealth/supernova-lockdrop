@@ -11,3 +11,14 @@ export const sendData = async (multiAddr = '/ip4/127.0.0.1/tcp/5002', data = 'te
   console.log(results);
   return results[0].path;
 }
+
+export const addToIPFS = async (multiAddr, obj): Promise<Buffer> => {
+  try {
+    const ipfsHash = await sendData(multiAddr, obj);
+    const buf = Buffer.from(ipfsHash);
+    return buf;
+  } catch (e) {
+    console.log('You must connect to a local or remote IPFS node to store data');
+    throw new Error(e);
+  }
+}

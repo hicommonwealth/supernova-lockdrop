@@ -9,22 +9,13 @@ import * as eth from './ethLock';
 import { Getters, queryLocks } from './cosmosQuery';
 
 // CLI Constants
-const LOCK_LENGTH = 31; // 31 days
+const LOCK_LENGTH = 182; // 182 days
 // Bitcoin
 const BTC_PRIVATE_KEY_WIF = process.env.BTC_PRIVATE_KEY_WIF;
-const BTC_BIP38_KEY_PATH = process.env.BTC_BIP38_KEY_PATH;
-const BTC_BIP38_PASSWORD = process.env.BTC_BIP38_PASSWORD;
 const BTC_BIP39_MNEMONIC_SEED = process.env.BTC_BIP39_MNEMONIC_SEED;
-const BTC_BIP32_DERIVATION_PATH = process.env.BTC_BIP32_DERIVATION_PATH;
-let BTC_UTXOS;
-if (process.env.BTC_UTXOS.length > 0) {
-  BTC_UTXOS = process.env.BTC_UTXOS.split(',');
-}
 const BTC_NETWORK_SETTING = process.env.BITCOIN_NETWORK_SETTING || 'regtest';
-const BTC_CHANGE_ADDRESS = process.env.BTC_CHANGE_ADDRESS;
-const BTC_CHANGE_AMOUNT = process.env.BTC_CHANGE_AMOUNT;
 // IPFS multiaddr
-const IPFS_REMOTE_URL = process.env.IPFS_REMOTE_URL;
+const IPFS_MULTIADDR = process.env.IPFS_MULTIADDR;
 // Ethereum constants
 const LOCKDROP_CONTRACT_ADDRESS = process.env.LOCKDROP_CONTRACT_ADDRESS;
 const ETH_PRIVATE_KEY = process.env.ETH_PRIVATE_KEY;
