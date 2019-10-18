@@ -1,25 +1,5 @@
 import * as btc from '../src/btcLock';
 import { Amount, Network } from 'bcoin';
-import { WalletClient, NodeClient } from 'bclient';
-
-export const setupBcoin = (network, apiKey) => {
-  const clientOptions = {
-    network: network.type,
-    port: network.rpcPort,
-    apiKey: apiKey,
-  }
-
-  const walletOptions = {
-    network: network.type,
-    port: network.walletPort,
-    apiKey: apiKey,
-  }
-
-  const nodeClient = new NodeClient(clientOptions);
-  const walletClient = new WalletClient(walletOptions);
-
-  return { nodeClient, walletClient };
-}
 
 describe('bitcoin locks', () => {
   let network = Network.get('regtest');
@@ -36,7 +16,7 @@ describe('bitcoin locks', () => {
   it.only('should use the lockAndRedeem script', async () => {
     const usingLedger = false;
     const walletId = 'primary';
-    const { nodeClient, walletClient } = setupBcoin(network, 'test');
+    const { nodeClient, walletClient } = btc.setupBcoin(network, 'test');
     const { wallet, ledgerBcoin } = await btc.getBcoinWallet(
       usingLedger,
       walletId,
@@ -63,7 +43,7 @@ describe('bitcoin locks', () => {
   it('should use the lockAndRedeem script with the Ledger', async () => {
     const usingLedger = true;
     const walletId = 'watchonly1';
-    const { nodeClient, walletClient } = setupBcoin(network, 'test');
+    const { nodeClient, walletClient } = btc.setupBcoin(network, 'test');
     const { wallet, ledgerBcoin } = await btc.getBcoinWallet(
       usingLedger,
       walletId,

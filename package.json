@@ -13,7 +13,7 @@
   "scripts": {
     "lint": "tslint -c tslint.json 'src/**/*.ts'",
     "start": "ts-node ./src/index.ts",
-    "query-atom": "ts-node ./src/index.ts atom query",
+    "query-cosmos": "ts-node ./src/index.ts cosmos query",
     "lock-btc": "ts-node ./src/index.ts btc lock",
     "lock-eth": "ts-node ./src/index.ts eth lock",
     "test": "ts-mocha ./test/*.spec.ts"
@@ -22,6 +22,8 @@
     "@types/filesystem": "^0.0.29",
     "bclient": "^0.1.7",
     "bcoin": "git+https://git@github.com/bcoin-org/bcoin.git",
+    "bip32": "^2.0.4",
+    "bip39": "^3.0.2",
     "bip65": "^1.0.3",
     "bledger": "^0.3.0",
     "blgr": "^0.1.7",

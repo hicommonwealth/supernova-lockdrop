@@ -4,18 +4,22 @@ import fs from 'fs';
 import program from 'commander';
 import path from 'path';
 import chalk from 'chalk';
+import bip32 from 'bip32';
+import bip39 from 'bip39';
 import * as btc from './btcLock';
 import * as eth from './ethLock';
 import { Getters, queryLocks } from './cosmosQuery';
+import { Amount } from 'bcoin';
 
 // CLI Constants
 const LOCK_LENGTH = 182; // 182 days
 // Bitcoin
 const BTC_PRIVATE_KEY_WIF = process.env.BTC_PRIVATE_KEY_WIF;
+const BTC_XPRV_KEY = process.env.BTC_XPRV_KEY;
 const BTC_BIP39_MNEMONIC_SEED = process.env.BTC_BIP39_MNEMONIC_SEED;
 const BTC_NETWORK_SETTING = process.env.BITCOIN_NETWORK_SETTING || 'regtest';
 // IPFS multiaddr
-const IPFS_MULTIADDR = process.env.IPFS_MULTIADDR;
+const IPFS_MULTIADDR = process.env.IPFS_MULTIADDR || '/ip4/127.0.0.1/tcp/5002';
 // Ethereum constants
 const LOCKDROP_CONTRACT_ADDRESS = process.env.LOCKDROP_CONTRACT_ADDRESS;
 const ETH_PRIVATE_KEY = process.env.ETH_PRIVATE_KEY;
@@ -24,7 +28,8 @@ const ETH_JSON_PASSWORD = process.env.ETH_JSON_PASSWORD;
 const ETH_JSON_VERSION = process.env.ETH_JSON_VERSION;
 // Infura API url
 const INFURA_PATH = process.env.INFURA_PATH;
-// Cosmos
+// Cosmos/Supernova
+const SUPERNOVA_ADDRESS = process.env.SUPERNOVA_ADDRESS;
 const COSMOS_REST_URL = process.env.COSMOS_REST_URL || 'http://149.28.47.49:1318';
 // Stdout coloring
 const error = chalk.bold.red;
@@ -35,6 +40,8 @@ program.version('1.0.0')
   .name(execName)
   .usage('<protocol> <function> [ARGS...]')
   .arguments('<protocol> <func> [args...]')
+  .option('--nativeWallet', 'Flag for signalling use of the native Bcoin wallet')
+  .option('--walletId', 'A non-default wallet ID for bcoin configuration')
   .option('--test', 'Test out some functionality')
   .option('-o, --output <filename>', 'Specify an output file for query data')
   .option('-v, --verbose', 'Print more log output')
@@ -44,17 +51,14 @@ program.version('1.0.0')
     console.log(`Protocol: ${protocol}, function: ${func}, args: ${args}`)
     const isLock = (func === 'lock');
     // technically anything other than 'lock' will trigger a query
-    const msg = `${(isLock) ? 'to lock on' : 'to query the lockdrop on'}`;
-
+    const msg = `${(isLock) ? 'to lock on' : (protocol === 'cosmos') ? 'to query the lockdrop on' : 'to withdraw'}`;
     // If isLock, then the arguments should be <protocol> lock <length> <amount>
     if (isLock) {
       const cmd = (protocol === 'eth') ? 'lock-eth' : 'lock-btc';
-      const wrongArgsMsg = `${error.underline('You must provide both length and amount arguments such as ')}${warning.underline(`yarn ${cmd} 10 10`)}${error.underline('!')}`;
-      const lengthErrorMsg = `${error.underline(`Length "${args[0]}" is not properly formatted, you must submit a number such as `)}${warning.underline(`yarn ${cmd} 10 10`)}${error.underline('!')}`;
-      const amountErrorMsg = `${error.underline(`Amount "${args[1]}" is not properly formatted, you must submit a number such as `)}${warning.underline(`yarn ${cmd} 10 10`)}${error.underline('!')}`;
-      assert(args.length === 2, wrongArgsMsg);
-      assert(!Number.isNaN(Number(args[0])), lengthErrorMsg);
-      assert(!Number.isNaN(Number(args[1])), amountErrorMsg);
+      const wrongArgsMsg = `${error.underline('You must provide an amount argument such as ')}${warning.underline(`yarn ${cmd} 10`)}${error.underline('!')}`;
+      const amountErrorMsg = `${error.underline(`Amount "${args[0]}" is not properly formatted, you must submit a number such as `)}${warning.underline(`yarn ${cmd} 10`)}${error.underline('!')}`;
+      assert(args.length === 1, wrongArgsMsg);
+      assert(!Number.isNaN(Number(args[0])), amountErrorMsg);
     }
 
     switch (protocol) {
@@ -70,17 +74,46 @@ program.version('1.0.0')
         break;
       case 'btc':
         console.log(`Using the Supernova Lockdrop CLI ${msg} Bitcoin`);
-        if (typeof BTC_PRIVATE_KEY_WIF === 'undefined' && typeof BTC_BIP38_KEY_PATH === 'undefined' && typeof BTC_BIP39_MNEMONIC_SEED === 'undefined') {
+        if (!program.nativeWallet || (typeof BTC_PRIVATE_KEY_WIF === 'undefined' && typeof BTC_BIP39_MNEMONIC_SEED === 'undefined')) {
           printNoKeyError('ensure your Ethereum key is formatted under BTC_PRIVATE_KEY_WIF, BTC_BIP39_MNEMONIC_SEED, or stored as a keystore file under BTC_BIP38_KEY_PATH');
           process.exit(1);
         } else {
-          const key = getBitcoinKeyFromEnvVar();
+          const keyWIF = getBitcoinKeyFromEnvVar();
           const network = btc.getNetworkSetting(BTC_NETWORK_SETTING);
-          const changeAddress = BTC_CHANGE_ADDRESS;
-          await btc.lock(key, args[0], args[1], '0x01', BTC_UTXOS, network, undefined, undefined);
+          const amountToFund = Amount.fromBTC(args[0]);
+          const walletId = program.walletID || 'primary';
+          const account = program.account || 'default';
+          const passphrase = program.passphrase || '';
+          const ledgerKeyPurpose = program.ledgerKeyPurpose || 44;
+          const ledgerKeyCoinType = program.ledgerKeyCoinType ||  0;
+          const ledgerKeyDPath = program.ledgerKeyDPath ||  0;
+          const usingLedger = program.ledger;
+          console.log(`Ledger: ${usingLedger}, Wallet: ${walletId}, Amount: ${amountToFund.toValue()}, Account: ${account}`)
+          const { nodeClient, walletClient } = btc.setupBcoin(network, 'test');
+          const { wallet, ledgerBcoin } = await btc.getBcoinWallet(
+            usingLedger,
+            walletId,
+            network,
+            walletClient,
+            ledgerKeyPurpose,
+            ledgerKeyCoinType,
+            ledgerKeyDPath,
+            passphrase,
+          );
+          const result = await btc.lock(
+            IPFS_MULTIADDR,
+            SUPERNOVA_ADDRESS,
+            amountToFund,
+            network,
+            nodeClient,
+            wallet,
+            account,
+            usingLedger,
+            ledgerBcoin,
+          )
         }
         break;
-      case 'atom':
+      case 'cosmos':
         console.log(`Using the Supernova Lockdrop CLI ${msg} Cosmos`);
         // initialize getters for API
         const quiet = !program.verbose;
@@ -149,10 +182,18 @@ function getEthereumKeyFromEnvVar() {
 }
 
 function getBitcoinKeyFromEnvVar() {
-  return btc.getPrivateKeyWIFFromEnvVar(
-    BTC_PRIVATE_KEY_WIF,
-    BTC_BIP39_MNEMONIC_SEED,
-    BTC_BIP32_DERIVATION_PATH,
-    BTC_BIP38_KEY_PATH,
-    BTC_BIP38_PASSWORD);
+  if (BTC_PRIVATE_KEY_WIF) {
+    return BTC_PRIVATE_KEY_WIF;
+  }
+
+  if (BTC_XPRV_KEY) {
+    let wif = bip32.fromBase58(BTC_XPRV_KEY).toWIF();
+    return wif;
+  }
+
+  if (BTC_BIP39_MNEMONIC_SEED) {
+    const seed = bip39.mnemonicToSeedSync(BTC_BIP39_MNEMONIC_SEED)
+    const wif = bip32.fromSeed(seed).toWIF();
+    return wif;
+  }
 }

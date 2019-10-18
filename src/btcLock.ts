@@ -8,10 +8,30 @@ import {
   Stack,
 } from 'bcoin';
 import bcoin from 'bcoin';
+import { WalletClient, NodeClient } from 'bclient';
 import fs from 'fs';
 import * as ipfsUtil from './ipfsUtil';
 import * as ledgerUtil from './ledgerUtil';
 import assert from 'assert';
+
+export const setupBcoin = (network, apiKey) => {
+  const clientOptions = {
+    network: network.type,
+    port: network.rpcPort,
+    apiKey: apiKey,
+  }
+
+  const walletOptions = {
+    network: network.type,
+    port: network.walletPort,
+    apiKey: apiKey,
+  }
+
+  const nodeClient = new NodeClient(clientOptions);
+  const walletClient = new WalletClient(walletOptions);
+
+  return { nodeClient, walletClient };
+}
 
 /**
  * @param {String} locktime - Time that the script can not be redeemed before
@@ -135,7 +155,7 @@ export const signInput = (mtx, index, coin, ring) => {
   return mtx;
 }
 
-export const getNetworkSettings = (network) => {
+export const getNetworkSetting = (network) => {
   switch (network) {
     case 'regtest':
       return Network.get('regtest');
@@ -206,14 +226,16 @@ export const lock = async (
     redeemScript = createScript(locktime.toString(), keyring.getKeyHash());
     lockingAddr = getAddress(redeemScript, network);
     // add data to IPFS for later querying
-    let ipfsData = JSON.stringify({
+    let ipfsData = {
       cosmosAddress,
       lockingAddr,
       redeemScript,
       locktime,
       redeemAddress,
-    });
+    };
+    console.log(multiAddr)
     let buf = await ipfsUtil.addToIPFS(multiAddr, ipfsData);
+    console.log('here')
     // create funding output and OP_RETURN output with IPFS hash
     let nullScript = bcoin.Script.fromNulldata(buf)
     let nullOutput = bcoin.Output.fromScript(nullScript, 0);
@@ -227,15 +249,7 @@ export const lock = async (
       console.log(`Using the local wallet with id ${wallet.id}, account ${account}`);
       lockedTx = await wallet.createTX({ outputs, rate: 7000 });
       // create new IPFS obj linked to previous with lockedTX data 
-      ipfsData = JSON.stringify({
-        prevLink: buf,
-        cosmosAddress,
-        lockingAddr,
-        redeemScript,
-        locktime,
-        redeemAddress,
-        lockedTx,
-      });
+      ipfsData = Object.assign({}, ipfsData, { prevLink: buf, lockedTx: lockedTx });
       buf = await ipfsUtil.addToIPFS(multiAddr, ipfsData);
       nullScript = bcoin.Script.fromNulldata(buf)
       nullOutput = bcoin.Output.fromScript(nullScript, 0);
