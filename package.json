@@ -10,6 +10,10 @@
   "files": [
     "src/"
   ],
+  "engines" : {
+    "node" : "v11.6.0",
+    "engineStrict" : "true"
+  },
   "scripts": {
     "lint": "tslint -c tslint.json 'src/**/*.ts'",
     "start": "ts-node ./src/index.ts",

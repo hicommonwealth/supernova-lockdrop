@@ -14,8 +14,6 @@ import { Amount } from 'bcoin';
 // CLI Constants
 const LOCK_LENGTH = 182; // 182 days
 // Bitcoin
-const BTC_PRIVATE_KEY_WIF = process.env.BTC_PRIVATE_KEY_WIF;
-const BTC_XPRV_KEY = process.env.BTC_XPRV_KEY;
 const BTC_BIP39_MNEMONIC_SEED = process.env.BTC_BIP39_MNEMONIC_SEED;
 const BTC_NETWORK_SETTING = process.env.BITCOIN_NETWORK_SETTING || 'regtest';
 // IPFS multiaddr
