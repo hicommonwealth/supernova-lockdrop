@@ -1,12 +1,12 @@
 import Web3, { utils } from 'web3';
 import HDWalletProvider from "truffle-hdwallet-provider";
-import EthereumTx from 'ethereumjs-tx';
+import { Transaction as EthereumTx} from 'ethereumjs-tx';
 import jswallet from 'ethereumjs-wallet';
 import fs from 'fs';
 
 const { toBN, fromWei } = utils;
-const LOCKDROP_JSON = JSON.parse(fs.readFileSync('./eth/build/contracts/Lockdrop.json').toString());
-const LOCALHOST_URL = 'http://localhost:8545';
+export const LOCKDROP_JSON = JSON.parse(fs.readFileSync('./eth/build/contracts/Lockdrop.json').toString());
+export const LOCALHOST_URL = 'http://localhost:8545';
 
 export function getWeb3(remoteUrl, key) {
   let provider;
@@ -21,7 +21,9 @@ export function getWeb3(remoteUrl, key) {
 
 export async function lock(key, amount, lockdropContractAddress, supernovaAddress, remoteUrl=LOCALHOST_URL) {
   console.log(`locking ${amount} ether into Lockdrop contract for 6 months. Receiver: ${supernovaAddress}`);
-  console.log(`Contract ${lockdropContractAddress}`);
+  if (key.indexOf('0x') !== -1) {
+    key = key.slice(2);
+  }
   const web3 = getWeb3(remoteUrl, key);
   const contract = new web3.eth.Contract(LOCKDROP_JSON.abi, lockdropContractAddress);
   // Grab account's transaction nonce for tx params
@@ -34,18 +36,15 @@ export async function lock(key, amount, lockdropContractAddress, supernovaAddres
     from: web3.currentProvider.addresses[0],
     to: lockdropContractAddress,
     gas: 150000,
-    data: contract.methods.lock(length, supernovaAddress).encodeABI(),
+    data: contract.methods.lock(supernovaAddress).encodeABI(),
     value: toBN(value),
   });
   // Sign the tx and send it
-  try {
-    tx.sign(Buffer.from(key, 'hex'));
-    var raw = '0x' + tx.serialize().toString('hex');
-    const txReceipt = await web3.eth.sendSignedTransaction(raw);
-    console.log(`Transaction hash: ${txReceipt.transactionHash}`);
-  } catch (e) {
-    console.log(e);
-  }
+  tx.sign(Buffer.from(key, 'hex'));
+  var raw = '0x' + tx.serialize().toString('hex');
+  const txReceipt = await web3.eth.sendSignedTransaction(raw);
+  console.log(`Transaction hash: ${txReceipt.transactionHash}`);
+  return txReceipt;
 }
 
 export const unlock = async (key, lockContractAddress, remoteUrl=LOCALHOST_URL, nonce=undefined) => {
@@ -81,24 +80,32 @@ export const getPrivateKeyFromEnvVar = (key) => {
   return (key.indexOf('0x') === -1) ? key : key.slice(2);
 };
 
-export const getPrivateKeyFromEncryptedJson = (keystorePath, jsonVersion, password) => {
-  if (fs.existsSync(keystorePath)) {
-    const json = JSON.parse(fs.readFileSync(keystorePath, 'utf8'));
-    let wallet;
-    if (jsonVersion.toLowerCase() === 'ethsale') {
-      wallet = jswallet.fromEthSale(json, password);
-    } else if (jsonVersion.toLowerCase() === 'v1') {
-      wallet = jswallet.fromV1(json, password);
-    } else if (jsonVersion.toLowerCase() === 'v3') {
-      wallet = jswallet.fromV3(json, password);
-    } else {
-      throw new Error('Please add a valid encrypted JSON keystore file version under key ETH_JSON_VERSION to a .env file in the project directory');
-    }
-
-    // Warning: Only use console.log in the example
-    // console.log("Private key " + wallet.getPrivateKey().toString("hex"));
-    return wallet.getPrivateKey().toString("hex");
+export const getPrivateKeyFromEncryptedJson = (keystorePath, jsonVersion, passphrase, jsonWallet) => {
+  if (jsonWallet) {
+    return parseWalletData(jsonVersion, passphrase, jsonWallet);
   } else {
-    throw new Error('Please add a valid encrypted JSON keystore file under key ETH_KEY_PATH to a .env file in the project directory');
+    if (fs.existsSync(keystorePath)) {
+      const json = JSON.parse(fs.readFileSync(keystorePath, 'utf8'));
+      return parseWalletData(jsonVersion, passphrase, json);
+    } else {
+      throw new Error('Please add a valid encrypted JSON keystore file under key ETH_KEY_PATH to a .env file in the project directory');
+    }
   }
 }
+
+const parseWalletData = (jsonVersion, passphrase, jsonWallet) => {
+  let wallet;
+  if (jsonVersion.toLowerCase() === 'ethsale') {
+    wallet = jswallet.fromEthSale(jsonWallet, passphrase);
+  } else if (jsonVersion.toLowerCase() === 'v1') {
+    wallet = jswallet.fromV1(jsonWallet, passphrase);
+  } else if (jsonVersion.toLowerCase() === 'v3') {
+    wallet = jswallet.fromV3(jsonWallet, passphrase);
+  } else {
+    throw new Error('Please add a valid encrypted JSON keystore file version under key ETH_JSON_VERSION to a .env file in the project directory');
+  }
+
+  // Warning: Only use console.log in the example
+  // console.log("Private key " + wallet.getPrivateKey().toString("hex"));
+  return wallet.getPrivateKey().toString("hex");
+};

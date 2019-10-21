@@ -1,9 +1,8 @@
 require('dotenv').config();
 import * as btc from '../src/btcLock';
-import { Amount, Network, Mnemonic, WalletDB } from 'bcoin';
+import { Amount, Network, Mnemonic } from 'bcoin';
 import bcoin from 'bcoin';
 import assert from 'assert';
-import HDKey from 'hdkey';
 const HD = bcoin.hd;
 
 describe('bitcoin locks', () => {
