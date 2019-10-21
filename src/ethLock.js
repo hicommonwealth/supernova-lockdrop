@@ -19,8 +19,8 @@ export function getWeb3(remoteUrl, key) {
   return web3;
 }
 
-export async function lock(key, length, amount, lockdropContractAddress, comsosAddress, remoteUrl=LOCALHOST_URL) {
-  console.log(`locking ${amount} ether into Lockdrop contract for ${length} months. Receiver: ${comsosAddress}`);
+export async function lock(key, amount, lockdropContractAddress, comsosAddress, remoteUrl=LOCALHOST_URL) {
+  console.log(`locking ${amount} ether into Lockdrop contract for 6 months. Receiver: ${comsosAddress}`);
   console.log(`Contract ${lockdropContractAddress}`);
   const web3 = getWeb3(remoteUrl, key);
   const contract = new web3.eth.Contract(LOCKDROP_JSON.abi, lockdropContractAddress);
