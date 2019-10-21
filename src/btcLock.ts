@@ -10,6 +10,7 @@ import {
 import bcoin from 'bcoin';
 import { WalletClient, NodeClient } from 'bclient';
 import fs from 'fs';
+import ipfsClient from 'ipfs-http-client';
 import * as ipfsUtil from './ipfsUtil';
 import * as ledgerUtil from './ledgerUtil';
 import assert from 'assert';
@@ -219,16 +220,12 @@ export const lock = async (
     redeemScript = createScript(locktime.toString(), keyring.getKeyHash());
     lockingAddr = getAddress(redeemScript, network);
     // add data to IPFS for later querying
-    let ipfsData = {
-      cosmosAddress,
-      lockingAddr,
-      redeemScript,
-      locktime,
-      redeemAddress,
-    };
-    if (debug) console.log(`Multiaddr: ${multiAddr}`);
-    if (debug) console.log(`IPFSData: ${JSON.stringify(ipfsData)}`)
-    let buf = await ipfsUtil.addToIPFS(multiAddr, ipfsData);
+    let ipfsData = { cosmosAddress, lockingAddr, redeemScript, locktime, redeemAddress };
+    console.log(`Multiaddr: ${multiAddr}`);
+    console.log(`IPFSData: ${JSON.stringify(ipfsData)}`);
+    const ipfs = ipfsClient(multiAddr);
+    let results = await ipfs.add(Buffer.from(JSON.stringify(ipfsData)));
+    let buf = Buffer.from(results[0].path);
     // create funding output and OP_RETURN output with IPFS hash
     let nullScript = bcoin.Script.fromNulldata(buf)
     let nullOutput = bcoin.Output.fromScript(nullScript, 0);
@@ -243,7 +240,8 @@ export const lock = async (
       lockedTx = await wallet.createTX({ outputs, rate: 7000 });
       // create new IPFS obj linked to previous with lockedTX data 
       ipfsData = Object.assign({}, ipfsData, { prevLink: buf, lockedTx: lockedTx });
-      buf = await ipfsUtil.addToIPFS(multiAddr, ipfsData);
+      const results = await ipfs.add(Buffer.from(JSON.stringify(ipfsData)));
+      buf = Buffer.from(results[0].path);
       nullScript = bcoin.Script.fromNulldata(buf)
       nullOutput = bcoin.Output.fromScript(nullScript, 0);
       outputs = [nullOutput, lockFundingOutput];

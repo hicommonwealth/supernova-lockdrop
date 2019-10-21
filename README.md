@@ -35,10 +35,8 @@ SUPERNOVA_ADDRESS=0x01
 BTC_BIP39_MNEMONIC_SEED="donate smooth boy ostrich fiction alcohol range struggle extra input fancy chapter organ cake transfer start balance sorry whip stem carpet finish novel among"
 
 # IPFS configuration environment variables
-# IPFS multiaddress to connect for storing data on timelocks
-IPFS_REMOTE_URL=
-
-
+# Multiaddress to connect for storing data on timelocks
+IPFS_MULTIADDR=
 
 # Ethereum configuration environment variables
 # Lockdrop contract on Ethereum

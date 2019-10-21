@@ -9,7 +9,7 @@ const HD = bcoin.hd;
 describe('bitcoin locks', () => {
   let network = Network.get('regtest');
   let amount = Amount.fromBTC('.5');
-  let multiAddress = undefined;
+  let multiAddress = '/ip4/127.0.0.1/tcp/5002';
   let cosmosAddress = '0x01';
   let ledgerKeyPurpose = 44;
   let ledgerKeyCoinType = 0;
@@ -109,8 +109,9 @@ describe('bitcoin locks', () => {
       account,
       usingLedger,
       ledgerBcoin,
+      1
     );
     result = await nodeClient.execute('generatetoaddress', [ 101, 'n2J1YidZgqQKBD1bsEHaLL3NrTY2yRfPTx' ]);
-    result = await btc.redeem(network, nodeClient, wallet);
+    result = await btc.redeem(network, nodeClient, wallet, 1);
   });
 });

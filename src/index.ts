@@ -4,8 +4,6 @@ import fs from 'fs';
 import program from 'commander';
 import path from 'path';
 import chalk from 'chalk';
-import bip32 from 'bip32';
-import bip39 from 'bip39';
 import * as btc from './btcLock';
 import * as eth from './ethLock';
 import { Getters, queryLocks } from './cosmosQuery';
@@ -13,12 +11,16 @@ import { Amount } from 'bcoin';
 
 // CLI Constants
 const LOCK_LENGTH = 182; // 182 days
-// Bitcoin
+// Bitcoin parameters
 const BTC_BIP39_MNEMONIC_SEED = process.env.BTC_BIP39_MNEMONIC_SEED;
 const BTC_NETWORK_SETTING = process.env.BITCOIN_NETWORK_SETTING || 'regtest';
+// Bcoin parameters
+const BCOIN_WALLET_ID = process.env.BCOIN_WALLET_ID || 'primary';
+const BCOIN_WALLET_ACCOUNT = process.env.BCOIN_WALLET_ACCOUNT || 'default';
+const BCOIN_WALLET_PASSPHRASE = process.env.BCOIN_WALLET_PASSPHRASE || '';
 // IPFS multiaddr
-const IPFS_MULTIADDR = process.env.IPFS_MULTIADDR;
-// Ethereum constants
+const IPFS_MULTIADDR = process.env.IPFS_MULTIADDR || '/ip4/127.0.0.1/tcp/5002';
+// Ethereum parameters
 const LOCKDROP_CONTRACT_ADDRESS = process.env.LOCKDROP_CONTRACT_ADDRESS;
 const ETH_PRIVATE_KEY = process.env.ETH_PRIVATE_KEY;
 const ETH_KEY_PATH = process.env.ETH_KEY_PATH;
@@ -27,8 +29,12 @@ const ETH_JSON_VERSION = process.env.ETH_JSON_VERSION;
 // Infura API url
 const INFURA_PATH = process.env.INFURA_PATH;
 // Cosmos/Supernova
-const SUPERNOVA_ADDRESS = process.env.SUPERNOVA_ADDRESS || '0x01';
+const SUPERNOVA_ADDRESS = process.env.SUPERNOVA_ADDRESS;
 const COSMOS_REST_URL = process.env.COSMOS_REST_URL || 'http://149.28.47.49:1318';
+// Ledger parameters (NOT WORKING)
+const LEDGER_KEY_PURPOSE = process.env.LEDGER_KEY_PURPOSE || 44;
+const LEDGER_COIN_TYPE = process.env.LEDGER_COIN_TYPE || 0;
+const LEDGER_DERIVATION_PATH = process.env.LEDGER_DERIVATION_PATH || 0;
 // Stdout coloring
 const error = chalk.bold.red;
 const warning = chalk.keyword('orange');
@@ -68,7 +74,7 @@ program.version('1.0.0')
   .option('--nativeWallet', 'Flag for signalling use of the native Bcoin wallet')
   .option('--usingLedger', 'Flag for signalling use of a compatible Ledger device')
   .option('--walletId', 'A non-default wallet ID for bcoin configuration')
-  .option('--test', 'Test out some functionality')
+  .option('--walletAccount', 'A non-default wallet account for bcoin configuratio')
   .option('-o, --output <filename>', 'Specify an output file for query data')
   .option('-v, --verbose', 'Print more log output');
 
@@ -110,16 +116,18 @@ if (program.btc) {
       printNoKeyError('ensure your Bitcoin mnemonic is formatted under BTC_BIP39_MNEMONIC_SEED');
       process.exit(1);
     } else {
+      const ipfsMultiaddr = program.ipfsMultiaddr || IPFS_MULTIADDR;
+      const supernovaAddress = program.supernovaAddress || SUPERNOVA_ADDRESS;
       const network = btc.getNetworkSetting(BTC_NETWORK_SETTING);
       const amountToFund = Amount.fromBTC(program.lock);
-      const walletId = program.walletID || 'primary';
-      const account = program.account || 'default';
-      const passphrase = program.passphrase || '';
-      const ledgerKeyPurpose = program.ledgerKeyPurpose || 44;
-      const ledgerKeyCoinType = program.ledgerKeyCoinType ||  0;
-      const ledgerKeyDPath = program.ledgerKeyDPath ||  0;
+      const walletId = program.walletID || BCOIN_WALLET_ID;
+      const account = program.walletAccount || BCOIN_WALLET_ACCOUNT;
+      const passphrase = program.passphrase || BCOIN_WALLET_PASSPHRASE;
+      const ledgerKeyPurpose = program.ledgerKeyPurpose || LEDGER_KEY_PURPOSE;
+      const ledgerKeyCoinType = program.ledgerKeyCoinType || LEDGER_COIN_TYPE;
+      const ledgerKeyDPath = program.ledgerKeyDPath || LEDGER_DERIVATION_PATH;
       const usingLedger = program.usingLedger || false;
-      console.log(`Ledger: ${usingLedger}, Wallet: ${walletId}, Amount: ${amountToFund.toValue()}, Account: ${account}`)
+      console.log(`Ledger: ${usingLedger}, Wallet: ${walletId}, Amount: ${amountToFund.toValue()}, Account: ${account}, Multiaddr: ${ipfsMultiaddr}`)
       const { nodeClient, walletClient } = btc.setupBcoin(network, 'test');
       const { wallet, ledgerBcoin } = await btc.getBcoinWallet(
         usingLedger,
@@ -135,8 +143,8 @@ if (program.btc) {
   
       return (program.lock)
         ? await btc.lock(
-          IPFS_MULTIADDR,
-          SUPERNOVA_ADDRESS,
+          ipfsMultiaddr,
+          supernovaAddress,
           amountToFund,
           network,
           nodeClient,
