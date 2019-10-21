@@ -123,7 +123,7 @@ if (program.eth) {
       if (program.generate) {
         const result = eth.generateEncryptedWallet(passphrase)
         if (program.output) {
-          fs.writeFileSync(program.output, result);
+          fs.writeFileSync(program.output, JSON.stringify(result));
         } else {
           console.log(error('If you want to save a key to a file, pass in an output file path with -o <filename>'));
           console.log(result);
@@ -177,8 +177,9 @@ if (program.btc) {
     if (program.generate) {
       const result = await btc.createOrGetAccount(wallet, account);
       if (program.output) {
-        fs.writeFileSync(program.output, result);
+        fs.writeFileSync(program.output, JSON.stringify(result));
       } else {
+        console.log(error('If you want to save a key to a file, pass in an output file path with -o <filename>'));
         console.log(result);
       }
     } else {
