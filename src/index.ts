@@ -12,7 +12,7 @@ import { Amount } from 'bcoin';
 // CLI Constants
 const LOCK_LENGTH = 182; // 182 days
 // Bitcoin parameters
-const BTC_BIP39_MNEMONIC_SEED = process.env.BTC_BIP39_MNEMONIC_SEED;
+const BTC_BIP39_MNEMONIC = process.env.BTC_BIP39_MNEMONIC;
 const BTC_NETWORK_SETTING = process.env.BITCOIN_NETWORK_SETTING || 'regtest';
 // Bcoin parameters
 const BCOIN_WALLET_ID = process.env.BCOIN_WALLET_ID || 'primary';
@@ -67,6 +67,8 @@ program.version('1.0.0')
   .option('--eth', 'Use ETH protocol commands')
   .option('--btc', 'Use BTC protocol commands')
   .option('--cosmos', 'Use Cosmos protocol commands')
+  .option('--supernova', 'Use Supernova protocol commands. The only command is to generate an account')
+  .option('--generate', 'Generate an account/address with the signalled protocol. You must indicate a protocol')
   .option('--lock <amount>', 'Lock some number of tokens using decimal representation')
   .option('--query <lockHeight>', 'Query the cosmos chain')
   .option('--unlock', 'Unlock tokens')
@@ -74,8 +76,8 @@ program.version('1.0.0')
   .option('--nativeWallet', 'Flag for signalling use of the native Bcoin wallet')
   .option('--usingLedger', 'Flag for signalling use of a compatible Ledger device')
   .option('--walletId', 'A non-default wallet ID for bcoin configuration')
-  .option('--walletAccount', 'A non-default wallet account for bcoin configuratio')
-  .option('-o, --output <filename>', 'Specify an output file for query data')
+  .option('--walletAccount', 'A non-default wallet account for bcoin configuration')
+  .option('-o, --output <filename>', 'Specify an output file for address, query, or lock data')
   .option('-v, --verbose', 'Print more log output');
 
 program.on('--help', () => {
@@ -94,17 +96,51 @@ if (program.usingLedger) {
   program.ledgerKeyDPath = program.ledgerKeyDPath || process.env.LEDGER_DERIVATION_PATH;
 }
 
-const msg = `${(program.lock) ? 'to lock on' : (program.cosmos) ? 'to query the lockdrop on' : 'to withdraw'}`;
+const msg = `${(program.lock)
+  ? 'to lock on'
+  : (program.cosmos)
+    ? 'to query the lockdrop on'
+    : (program.generate)
+      ? 'generate an address on'
+      : 'to unlock on'}`;
+
+// if (program.generateAddress) {
+//   const protocol = (program.eth) ? 'ETH' : (program.btc) ? 'BTC' : (program.supernova) ? 'Supernova' : ''
+//   if (!protocol.length) {
+//     throw new Error('You must pass in a valid protocol to generate keys for: ETH, BTC, or Supernova');
+//   }
+// }
 
 if (program.eth) {
   (async () => {
     console.log(`Using the Supernova Lockdrop CLI ${msg} Ethereum`);
-    if (typeof ETH_PRIVATE_KEY === 'undefined' && typeof ETH_KEY_PATH === 'undefined') {
+    if (typeof ETH_PRIVATE_KEY !== 'undefined' || 
+         (typeof ETH_KEY_PATH !== 'undefined' &&
+          typeof ETH_JSON_PASSWORD !== 'undefined' &&
+          typeof ETH_JSON_VERSION !== 'undefined')
+    ) {
+      const passphrase = program.passphrase || ETH_JSON_PASSWORD;
+      if (program.generate) {
+        const result = eth.generateEncryptedWallet(passphrase)
+        if (program.output) {
+          fs.writeFileSync(program.output, result);
+        } else {
+          console.log(error('If you want to save a key to a file, pass in an output file path with -o <filename>'));
+          console.log(result);
+        }
+      } else {
+        const key = getEthereumKeyFromEnvVar();
+        const infuraPath = program.infuraPath || INFURA_PATH;
+        const lockdropContractAddress = program.lockdropContractAddress || LOCKDROP_CONTRACT_ADDRESS;
+        const supernovaAddress = program.supernovaAddress || SUPERNOVA_ADDRESS;
+
+        return (program.lock)
+          ? await eth.lock(key, program.lock, supernovaAddress, lockdropContractAddress, infuraPath)
+          : await eth.unlock(key, lockdropContractAddress, infuraPath);
+      }
+    } else {
       printNoKeyError('ensure your Ethereum key is formatted under ETH_PRIVATE_KEY or stored as a keystore file under ETH_KEY_PATH');
       process.exit(1);
-    } else {
-      const key = getEthereumKeyFromEnvVar();
-      await eth.lock(key, program.lock, '0x01', LOCKDROP_CONTRACT_ADDRESS, INFURA_PATH);
     }
   })();
 }
@@ -112,40 +148,45 @@ if (program.eth) {
 if (program.btc) {
   (async () => {
     console.log(`Using the Supernova Lockdrop CLI ${msg} Bitcoin`);
-    if (!program.nativeWallet && typeof BTC_BIP39_MNEMONIC_SEED === 'undefined') {
-      printNoKeyError('ensure your Bitcoin mnemonic is formatted under BTC_BIP39_MNEMONIC_SEED');
-      process.exit(1);
+    const ipfsMultiaddr = program.ipfsMultiaddr || IPFS_MULTIADDR;
+    const supernovaAddress = program.supernovaAddress || SUPERNOVA_ADDRESS;
+    const network = btc.getNetworkSetting(BTC_NETWORK_SETTING);
+    const amountToFund = program.lock || '0';
+    const walletId = program.walletID || BCOIN_WALLET_ID;
+    const account = program.walletAccount || BCOIN_WALLET_ACCOUNT;
+    const passphrase = program.passphrase || BCOIN_WALLET_PASSPHRASE;
+    const ledgerKeyPurpose = program.ledgerKeyPurpose || LEDGER_KEY_PURPOSE;
+    const ledgerKeyCoinType = program.ledgerKeyCoinType || LEDGER_COIN_TYPE;
+    const ledgerKeyDPath = program.ledgerKeyDPath || LEDGER_DERIVATION_PATH;
+    const usingLedger = program.usingLedger || false;
+    const apiKey = program.apiKey || 'test';
+    console.log(`Ledger: ${usingLedger}, Wallet: ${walletId}, Amount: ${amountToFund}, Account: ${account}, Multiaddr: ${ipfsMultiaddr}`)
+    const { nodeClient, walletClient } = btc.setupBcoin(network, apiKey);
+    const { wallet, ledgerBcoin } = await btc.getBcoinWallet(
+      usingLedger,
+      walletId,
+      network,
+      walletClient,
+      ledgerKeyPurpose,
+      ledgerKeyCoinType,
+      ledgerKeyDPath,
+      passphrase,
+      BTC_BIP39_MNEMONIC,
+    );
+
+    if (program.generate) {
+      const result = await btc.createOrGetAccount(wallet, account);
+      if (program.output) {
+        fs.writeFileSync(program.output, result);
+      } else {
+        console.log(result);
+      }
     } else {
-      const ipfsMultiaddr = program.ipfsMultiaddr || IPFS_MULTIADDR;
-      const supernovaAddress = program.supernovaAddress || SUPERNOVA_ADDRESS;
-      const network = btc.getNetworkSetting(BTC_NETWORK_SETTING);
-      const amountToFund = Amount.fromBTC(program.lock);
-      const walletId = program.walletID || BCOIN_WALLET_ID;
-      const account = program.walletAccount || BCOIN_WALLET_ACCOUNT;
-      const passphrase = program.passphrase || BCOIN_WALLET_PASSPHRASE;
-      const ledgerKeyPurpose = program.ledgerKeyPurpose || LEDGER_KEY_PURPOSE;
-      const ledgerKeyCoinType = program.ledgerKeyCoinType || LEDGER_COIN_TYPE;
-      const ledgerKeyDPath = program.ledgerKeyDPath || LEDGER_DERIVATION_PATH;
-      const usingLedger = program.usingLedger || false;
-      console.log(`Ledger: ${usingLedger}, Wallet: ${walletId}, Amount: ${amountToFund.toValue()}, Account: ${account}, Multiaddr: ${ipfsMultiaddr}`)
-      const { nodeClient, walletClient } = btc.setupBcoin(network, 'test');
-      const { wallet, ledgerBcoin } = await btc.getBcoinWallet(
-        usingLedger,
-        walletId,
-        network,
-        walletClient,
-        ledgerKeyPurpose,
-        ledgerKeyCoinType,
-        ledgerKeyDPath,
-        passphrase,
-        BTC_BIP39_MNEMONIC_SEED,
-      );
-  
       return (program.lock)
         ? await btc.lock(
           ipfsMultiaddr,
           supernovaAddress,
-          amountToFund,
+          Amount.fromBTC(amountToFund),
           network,
           nodeClient,
           wallet,

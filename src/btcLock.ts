@@ -351,7 +351,7 @@ export const getBcoinWallet = async (
   purpose,
   coinType,
   dPath,
-  password,
+  passphrase,
   mnemonic,
   debug: Number = 0
 ) => {
@@ -365,23 +365,38 @@ export const getBcoinWallet = async (
       network,
       walletClient,
       walletId,
-      password
+      passphrase
     );
   } else {
+    let options;
     if (mnemonic) {
-      try {
-        const options = {
-          passphrase: '',
-          witness: true,
-          mnemonic: mnemonic.toString(),
-        };
-        // create new wallet with mnemonic
-        await walletClient.createWallet(walletId, options);
-      } catch (e) {
-        // fail gracefully
-      }
+      options = {
+        passphrase: '',
+        witness: true,
+        mnemonic: mnemonic.toString(),
+      };
+    } else {
+      options = {
+        passphrase: passphrase,
+        witness: true,
+      };
     }
+    try {
+      // create new wallet with options
+      await walletClient.createWallet(walletId, options);
+    } catch (e) {
+      // fail gracefully
+    }
+    // grab the wallet
     wallet = walletClient.wallet(walletId);
   }
   return { wallet, ledgerBcoin };
+}
+
+export const createOrGetAccount = async (wallet, account) => {
+  try {
+    return await wallet.createAccount(account);
+  } catch (error) {
+    return await wallet.getAccount(account);
+  }
 }

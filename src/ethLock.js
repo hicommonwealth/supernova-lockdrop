@@ -19,8 +19,8 @@ export function getWeb3(remoteUrl, key) {
   return web3;
 }
 
-export async function lock(key, amount, lockdropContractAddress, comsosAddress, remoteUrl=LOCALHOST_URL) {
-  console.log(`locking ${amount} ether into Lockdrop contract for 6 months. Receiver: ${comsosAddress}`);
+export async function lock(key, amount, lockdropContractAddress, supernovaAddress, remoteUrl=LOCALHOST_URL) {
+  console.log(`locking ${amount} ether into Lockdrop contract for 6 months. Receiver: ${supernovaAddress}`);
   console.log(`Contract ${lockdropContractAddress}`);
   const web3 = getWeb3(remoteUrl, key);
   const contract = new web3.eth.Contract(LOCKDROP_JSON.abi, lockdropContractAddress);
@@ -34,7 +34,7 @@ export async function lock(key, amount, lockdropContractAddress, comsosAddress, 
     from: web3.currentProvider.addresses[0],
     to: lockdropContractAddress,
     gas: 150000,
-    data: contract.methods.lock(length, comsosAddress).encodeABI(),
+    data: contract.methods.lock(length, supernovaAddress).encodeABI(),
     value: toBN(value),
   });
   // Sign the tx and send it
@@ -46,6 +46,35 @@ export async function lock(key, amount, lockdropContractAddress, comsosAddress, 
   } catch (e) {
     console.log(e);
   }
+}
+
+export const unlock = async (key, lockContractAddress, remoteUrl=LOCALHOST_URL, nonce=undefined) => {
+  console.log(`Unlocking lock contract: ${lockContractAddress}`);
+  const web3 = getWeb3(remoteUrl);
+  try {
+    // Grab account's transaction nonce for tx params if nonce is not provided
+    if (!nonce) {
+      nonce = await web3.eth.getTransactionCount(web3.currentProvider.addresses[0]);
+    }
+    // Create generic send transaction to unlock from the lock contract
+    const tx = new EthereumTx({
+      nonce: nonce,
+      from: web3.currentProvider.addresses[0],
+      to: lockContractAddress,
+      gas: 100000,
+    });
+    // Sign the tx and send it
+    tx.sign(Buffer.from(key, 'hex'));
+    var raw = '0x' + tx.serialize().toString('hex');
+    const txReceipt = await web3.eth.sendSignedTransaction(raw);
+    console.log(`Transaction hash: ${txReceipt.transactionHash}`);
+  } catch(e) {
+    console.log(e);
+  }
+}
+
+export const generateEncryptedWallet = (passphrase) => {
+  return jswallet.generate().toV3(passphrase);
 }
 
 export const getPrivateKeyFromEnvVar = (key) => {

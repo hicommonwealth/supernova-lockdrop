@@ -9,7 +9,7 @@ contract Lock {
             sstore(0x01, unlockTime)
         }
     }
-    
+
     /**
      * @dev        Withdraw function once timestamp has passed unlock time
      */
@@ -32,8 +32,8 @@ contract Lockdrop {
     uint256 public LOCK_START_TIME;
     uint256 public LOCK_END_TIME;
     // ETH locking events
-    event Locked(address indexed owner, uint256 eth, Lock lockAddr, bytes cosmosAddr, uint time);
-    
+    event Locked(address indexed owner, uint256 eth, Lock lockAddr, bytes supernovaAddr, uint time);
+
     constructor(uint startTime) public {
         LOCK_START_TIME = startTime;
         LOCK_END_TIME = startTime + LOCK_DROP_PERIOD;
@@ -41,9 +41,9 @@ contract Lockdrop {
 
     /**
      * @dev        Locks up the value sent to contract in a new Lock
-     * @param      cosmosAddr   The bytes representation of the target cosmos key
+     * @param      supernovaAddr   The bytes representation of the target cosmos key
      */
-    function lock(bytes calldata cosmosAddr)
+    function lock(bytes calldata supernovaAddr)
         external
         payable
         didStart
@@ -53,7 +53,7 @@ contract Lockdrop {
         Lock lockAddr = (new Lock).value(msg.value)(msg.sender, now + LOCK_LENGTH_TERM);
         // ensure lock contract has at least all the ETH, or fail
         assert(address(lockAddr).balance >= msg.value);
-        emit Locked(msg.sender, msg.value, lockAddr, cosmosAddr, now);
+        emit Locked(msg.sender, msg.value, lockAddr, supernovaAddr, now);
     }
 
     /**

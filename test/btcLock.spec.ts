@@ -42,45 +42,45 @@ describe('bitcoin locks', () => {
     assert(addressRes.address);
   });
 
-  it('should import a WIF private key', async () => {
-    const privateKey = process.env.BTC_PRIVATE_KEY_WIF;
-    const walletId = 'new';
-    const account = 'default';
+  it('should create a wallet or grab an existing wallet and not fail', async () => {
+    const usingLedger = false;
+    const walletId = 'primary2';
     const { walletClient } = btc.setupBcoin(network, 'test');
-    const wallet = walletClient.wallet(walletId);
-    let result;
-    try {
-      result = await wallet.importPrivate(account, privateKey, '');
-      console.log(result);
-    } catch (error) {
-      // fail gracefully if key is already created
-    }
-    result = await wallet.createAddress(account);
-    assert(result);
-    
+    const { wallet } = await btc.getBcoinWallet(
+      usingLedger,
+      walletId,
+      network,
+      walletClient,
+      ledgerKeyPurpose,
+      ledgerKeyCoinType,
+      ledgerKeyDPath,
+      password,
+      undefined,
+    );
+
+    assert(wallet.id, walletId);
   });
 
-  it.skip('should create a Bcoin wallet from an HD key', async () => {
-    const walletId = 'new5';
-    const account = 'default';
+  it('should create a new account or grab an existing one and not fail', async () => {
+    const usingLedger = false;
+    const walletId = 'primary2';
     const { walletClient } = btc.setupBcoin(network, 'test');
-    const key = 'tprv8ipSFuEcZmhg7KsUm67UJuVk6rieU5jNj94RqfyTBbAPALvheopZJsPvXXvBKrxsHTHXxqXB2y353MLAPUpDGyi6Mnw8dLaRvErhXrnQ178'
-    const master = HD.fromBase58(key, network)
-    const options = {
-      passphrase: '',
-      witness: false,
-      master: master,
-    };
-    try {
-      let result = await walletClient.createWallet(walletId, options);
-      console.log(result);
-    } catch (error) {
-      
-    }
-    const wallet = walletClient.wallet(walletId);
-    assert(wallet);
-    let result = await wallet.getMaster();
-    console.log(result);
+    const { wallet } = await btc.getBcoinWallet(
+      usingLedger,
+      walletId,
+      network,
+      walletClient,
+      ledgerKeyPurpose,
+      ledgerKeyCoinType,
+      ledgerKeyDPath,
+      password,
+      undefined,
+    );
+
+    const accountName = 'default';
+    const account = await btc.createOrGetAccount(wallet, accountName);
+    assert(account.receiveAddress);
+    assert(account.changeAddress);
   });
 
   it('should use the lock and redeem script', async () => {
@@ -109,9 +109,9 @@ describe('bitcoin locks', () => {
       account,
       usingLedger,
       ledgerBcoin,
-      1
+      undefined
     );
     result = await nodeClient.execute('generatetoaddress', [ 101, 'n2J1YidZgqQKBD1bsEHaLL3NrTY2yRfPTx' ]);
-    result = await btc.redeem(network, nodeClient, wallet, 1);
+    result = await btc.redeem(network, nodeClient, wallet);
   });
 });
