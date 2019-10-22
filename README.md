@@ -23,12 +23,29 @@ bcoin
 ```
 Optionally, you can prune it and pass in an api key, an http url to connect to, and other commands (for testnets, and indexing txs etc.). Many of the options are described in the guide linked above:
 ```
-bcoin --prune --api-key <API_KEY> --http-host=0.0.0.0 --network=regtest --index-tx --index-address
+bcoin --prune --api-key <API_KEY> --http-host=0.0.0.0 --index-tx --index-address
+```
+The command we use for testing is:
+```
+bcoin --network=regtest --http-host=0.0.0.0 --api-key=test --index-tx --index-address
 ```
 Bcoin comes with a native wallet that you can use to fund new keys to participate in the lockdrop with. To learn more about the commands to run, you can read the API documentation [here](https://bcoin.io/api-docs/?shell--cli#wallet). If you choose to use a pruned node, be aware that there are technicalities with it interfacing with already funded wallets. We recommend a pruned node for fresh wallets that have not been funded prior to syncing the chain.
 
+#### IPFS
+- Install `ipfs` globally to have access to the `jsipfs` command:
+```
+npm install ipfs --global
+```
+- To launch the Daemon, run:
+```
+jsipfs daemon
+```
+Once you have Bcoin and IPFS running, you can proceed with your lock!
+
 #### Cosmos
 - To use the Cosmos query functionality, you must provide a URL of the Cosmos node you want to query against or have one setup locally.
+
+
 
 ## Environment variables
 The CLI uses environment variables to configure the desired functionality. You should create a `.env` file in the project directory and populate the following inputs, depending on your desired participation methods.
