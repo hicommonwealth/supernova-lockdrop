@@ -30,7 +30,6 @@ const ETH_JSON_VERSION = process.env.ETH_JSON_VERSION;
 const INFURA_PATH = process.env.INFURA_PATH;
 // Cosmos/Supernova
 const SUPERNOVA_ADDRESS = process.env.SUPERNOVA_ADDRESS;
-const COSMOS_REST_URL = process.env.COSMOS_REST_URL || 'http://149.28.47.49:1318';
 const COSMOS_TENDERMINT_URL = process.env.COSMOS_TENDERMINT_URL || 'http://149.28.47.49:26657';
 const GAIACLI_PATH = process.env.GAIACLI_PATH || 'gaiacli';
 // Ledger parameters (NOT WORKING)
@@ -86,6 +85,7 @@ program.version('1.0.0')
   // additional cosmos flags
   .option('--validator <address>', 'The cosmos validator to lock or unlock with')
   .option('--keyName <name>', 'The name of your cosmos key, as registered with gaiacli')
+  .option('--chainId <id>', 'The ID of the cosmos chain to lock on (default: cosmoshub-2)', 'cosmoshub-2')
   .option('--dryRun', 'Simulate the cosmos transaction but do not broadcast')
 
   // misc flags
@@ -304,12 +304,10 @@ if (program.cosmos) {
       if (program.lock) {
         const result = exec(
           `${GAIACLI_PATH} tx staking delegate --from ${program.keyName} ` +
-          `--node ${COSMOS_TENDERMINT_URL} --trust-node ` +
-          `${program.validator} ${program.lock}stake ` +
-          program.dryRun ? '--dry-run ' : ''
+          `--node ${COSMOS_TENDERMINT_URL} --chain-id ${program.chainId} ` +
+          `${program.validator} ${program.lock}stake -y ` +
+          (program.dryRun ? '--dry-run ' : '')
         );
-        // TODO: handle results
-        console.log(result);
       } else if (program.unlock) {
         if (typeof program.unlock === 'boolean') {
           console.log(error('must provide unlock amount (in stake) on cosmos'));
@@ -317,12 +315,10 @@ if (program.cosmos) {
         }
         const result = exec(
           `${GAIACLI_PATH} tx staking unbond --from ${program.keyName} ` +
-          `--node ${COSMOS_TENDERMINT_URL} --trust-node ` +
-          `${program.validator} ${program.unlock}stake ` +
-          program.dryRun ? '--dry-run ' : ''
+          `--node ${COSMOS_TENDERMINT_URL} --chain-id ${program.chainId} ` +
+          `${program.validator} ${program.unlock}stake -y ` +
+          (program.dryRun ? '--dry-run ' : '')
         );
-        // TODO: handle results
-        console.log(result);
       }
     }
   })();
