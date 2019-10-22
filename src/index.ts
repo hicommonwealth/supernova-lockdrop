@@ -32,6 +32,7 @@ const INFURA_PATH = process.env.INFURA_PATH;
 const SUPERNOVA_ADDRESS = process.env.SUPERNOVA_ADDRESS;
 const COSMOS_REST_URL = process.env.COSMOS_REST_URL || 'http://149.28.47.49:1318';
 const COSMOS_TENDERMINT_URL = process.env.COSMOS_TENDERMINT_URL || 'http://149.28.47.49:26657';
+const GAIACLI_PATH = process.env.GAIACLI_PATH || 'gaiacli';
 // Ledger parameters (NOT WORKING)
 const LEDGER_KEY_PURPOSE = process.env.LEDGER_KEY_PURPOSE || 44;
 const LEDGER_COIN_TYPE = process.env.LEDGER_COIN_TYPE || 0;
@@ -133,11 +134,11 @@ const nMutuallyExclusiveActions = [
 ].filter((arg) => arg).length;
 
 if (nMutuallyExclusiveActions === 0) {
-  console.log(error('must provide either, --lock, --unlock, --generate, or --query (only usable with --cosmos)'))
+  console.log(error('must provide either, --lock, --unlock, or --generate'))
   process.exit(1);
 }
 if (nMutuallyExclusiveActions > 1) {
-  console.log(error('must only provide one of --lock, --unlock, --generate, or --query'));
+  console.log(error('must only provide one of --lock, --unlock, --generate'));
   process.exit(1);
 }
 
@@ -254,20 +255,34 @@ if (program.btc) {
 
 if (program.cosmos) {
   (async () => {
-    console.log(`Using the Supernova Lockdrop CLI ${msg} Cosmos`);
     const quiet = !program.verbose;
 
+    console.log(`Using the Supernova Lockdrop CLI ${msg} Cosmos`);
     if (program.output) {
       console.log(warning('cosmos does not support the --output flag, ignoring'));
     }
 
+    // wrapper for exec to get the correct input/output handling
+    const exec = (cmd) => {
+      if (!quiet) console.log(`Exec: ${cmd}`);
+      return child_process.execSync(cmd, {
+        env: process.env,
+        stdio: [process.stdin, 'pipe', process.stderr],
+        encoding: null,
+      });
+    }
+
     // check if gaiacli is available
-    const version = child_process.execSync('gaiacli version');
+    const version = exec(`${GAIACLI_PATH} version`);
     // TODO: should we check version?
     if (!version) {
       console.log(error('gaiacli must be installed for cosmos functionality'));
       process.exit(1);
+    } else if (!quiet) {
+      console.log('Found gaiacli at path: ' + GAIACLI_PATH + ', version: ' + version);
     }
+
+    // functionality
     if (program.generate) {
       if (typeof program.generate !== 'string') {
         console.log(error('must supply a key name to generate a cosmos address'));
@@ -275,7 +290,7 @@ if (program.cosmos) {
       }
       // TODO: we may want to use the `--no-backup` flag to to avoid displaying the seed
       //   phrase, but then it is lost forever.
-      const result = child_process.execSync(`gaiacli keys add ${program.generate}`);
+      const result = exec(`${GAIACLI_PATH} keys add ${program.generate}`);
       console.log(result);
     } else {
       if (!program.keyName) {
@@ -287,8 +302,8 @@ if (program.cosmos) {
       }
       // TODO: should we move some of these arguments into the env file?
       if (program.lock) {
-        const result = child_process.execSync(
-          `gaiacli tx staking delegate --from ${program.keyName} ` +
+        const result = exec(
+          `${GAIACLI_PATH} tx staking delegate --from ${program.keyName} ` +
           `--node ${COSMOS_TENDERMINT_URL} --trust-node ` +
           `${program.validator} ${program.lock}stake ` +
           program.dryRun ? '--dry-run ' : ''
@@ -300,8 +315,8 @@ if (program.cosmos) {
           console.log(error('must provide unlock amount (in stake) on cosmos'));
           process.exit(1);
         }
-        const result = child_process.execSync(
-          `gaiacli tx staking unbond --from ${program.keyName} ` +
+        const result = exec(
+          `${GAIACLI_PATH} tx staking unbond --from ${program.keyName} ` +
           `--node ${COSMOS_TENDERMINT_URL} --trust-node ` +
           `${program.validator} ${program.unlock}stake ` +
           program.dryRun ? '--dry-run ' : ''
