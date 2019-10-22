@@ -199,7 +199,6 @@ if (program.btc) {
 }
 
 if (program.cosmos) {
-  console.log('here');
   (async () => {
     console.log(`Using the Supernova Lockdrop CLI ${msg} Cosmos`);
     // initialize getters for API
