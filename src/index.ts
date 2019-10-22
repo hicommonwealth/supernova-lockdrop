@@ -104,13 +104,6 @@ const msg = `${(program.lock)
       ? 'generate an address on'
       : 'to unlock on'}`;
 
-// if (program.generateAddress) {
-//   const protocol = (program.eth) ? 'ETH' : (program.btc) ? 'BTC' : (program.supernova) ? 'Supernova' : ''
-//   if (!protocol.length) {
-//     throw new Error('You must pass in a valid protocol to generate keys for: ETH, BTC, or Supernova');
-//   }
-// }
-
 if (program.eth) {
   (async () => {
     console.log(`Using the Supernova Lockdrop CLI ${msg} Ethereum`);
@@ -206,21 +199,22 @@ if (program.btc) {
 }
 
 if (program.cosmos) {
+  console.log('here');
   (async () => {
     console.log(`Using the Supernova Lockdrop CLI ${msg} Cosmos`);
     // initialize getters for API
     const quiet = !program.verbose;
-    const getters = new Getters(COSMOS_REST_URL, quiet);
-    await getters.init();
+    // const getters = new Getters(COSMOS_REST_URL, quiet);
+    // await getters.init();
   
-    // query validator and delegator information to compute locks
-    const lockHeight = program.query || getters.latestHeight;
-    const locks = await queryLocks(getters, lockHeight, quiet);
-    const lockJson = JSON.stringify(locks, null, 2);
-    if (program.output) {
-      fs.writeFileSync(program.output, lockJson);
-    } else {
-      process.stdout.write(lockJson);
-    }
+    // // query validator and delegator information to compute locks
+    // const lockHeight = program.query || getters.latestHeight;
+    // const locks = await queryLocks(getters, lockHeight, quiet);
+    // const lockJson = JSON.stringify(locks, null, 2);
+    // if (program.output) {
+    //   fs.writeFileSync(program.output, lockJson);
+    // } else {
+    //   process.stdout.write(lockJson);
+    // }
   })();
 }

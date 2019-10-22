@@ -221,8 +221,6 @@ export const lock = async (
     lockingAddr = getAddress(redeemScript, network);
     // add data to IPFS for later querying
     let ipfsData = { cosmosAddress, lockingAddr, redeemScript, locktime, redeemAddress };
-    console.log(`Multiaddr: ${multiAddr}`);
-    console.log(`IPFSData: ${JSON.stringify(ipfsData)}`);
     const ipfs = ipfsClient(multiAddr);
     let results = await ipfs.add(Buffer.from(JSON.stringify(ipfsData)));
     let buf = Buffer.from(results[0].path);
@@ -239,23 +237,18 @@ export const lock = async (
       if (debug === 1) console.log(`Using the local wallet with id ${wallet.id}, account ${account}`);
       lockedTx = await wallet.createTX({ outputs, rate: 7000 });
       // create new IPFS obj linked to previous with lockedTX data 
-      ipfsData = Object.assign({}, ipfsData, { prevLink: buf, lockedTx: lockedTx });
+      ipfsData = Object.assign({}, ipfsData, { prevLink: buf.toString(), prevTx: lockedTx });
       const results = await ipfs.add(Buffer.from(JSON.stringify(ipfsData)));
       buf = Buffer.from(results[0].path);
       nullScript = bcoin.Script.fromNulldata(buf)
       nullOutput = bcoin.Output.fromScript(nullScript, 0);
       outputs = [nullOutput, lockFundingOutput];
       lockedTx = await wallet.send({ outputs, rate: 7000 });
+      ipfsData = Object.assign({}, ipfsData, { ipfsHash: buf.toString(), lockedTx: lockedTx });
     }
     if (debug === 1) console.log('transaction sent to mempool');
     // save the transaction information to to a file
-    fs.writeFileSync(txInfoPath, JSON.stringify({
-      lockedTx,
-      lockingAddr,
-      redeemScript,
-      locktime,
-      redeemAddress,
-    }, null, 2));
+    fs.writeFileSync(txInfoPath, JSON.stringify(ipfsData, null, 2));
   } else {
     throw new Error('There already exists a lock tx, save and rename it to start again, otherwise delete it');
   }
