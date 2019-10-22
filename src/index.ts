@@ -85,6 +85,7 @@ program.version('1.0.0')
   // additional cosmos flags
   .option('--validator <address>', 'The cosmos validator to lock or unlock with')
   .option('--keyName <name>', 'The name of your cosmos key, as registered with gaiacli')
+  .option('--dryRun', 'Simulate the cosmos transaction but do not broadcast')
 
   // misc flags
   .option('-o, --output <filename>', 'Specify an output file for address or lock data')
@@ -289,7 +290,8 @@ if (program.cosmos) {
         const result = child_process.execSync(
           `gaiacli tx staking delegate --from ${program.keyName} ` +
           `--node ${COSMOS_TENDERMINT_URL} --trust-node ` +
-          `${program.validator} ${program.lock}stake`
+          `${program.validator} ${program.lock}stake ` +
+          program.dryRun ? '--dry-run ' : ''
         );
         // TODO: handle results
         console.log(result);
@@ -301,7 +303,8 @@ if (program.cosmos) {
         const result = child_process.execSync(
           `gaiacli tx staking unbond --from ${program.keyName} ` +
           `--node ${COSMOS_TENDERMINT_URL} --trust-node ` +
-          `${program.validator} ${program.unlock}stake`
+          `${program.validator} ${program.unlock}stake ` +
+          program.dryRun ? '--dry-run ' : ''
         );
         // TODO: handle results
         console.log(result);
