@@ -274,10 +274,6 @@ if (program.cosmos) {
     const quiet = !program.verbose;
 
     console.log(`Using the Supernova Lockdrop CLI ${msg} Cosmos`);
-    if (program.output) {
-      console.log(warning('cosmos does not support the --output flag, ignoring'));
-    }
-
     if (program.useGaia) {
       // check if gaiacli is available
       const version = exec(`${GAIACLI_PATH} version`, quiet);
