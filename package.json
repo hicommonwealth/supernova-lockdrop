@@ -17,9 +17,6 @@
   "scripts": {
     "lint": "tslint -c tslint.json 'src/**/*.ts'",
     "start": "ts-node ./src/index.ts",
-    "query-cosmos": "ts-node ./src/index.ts --cosmos --query",
-    "lock-btc": "ts-node ./src/index.ts --btc --lock",
-    "lock-eth": "ts-node ./src/index.ts --eth --lock",
     "test": "ts-mocha ./test/*.spec.ts",
     "test-eth": "ts-mocha ./test/eth*"
   },

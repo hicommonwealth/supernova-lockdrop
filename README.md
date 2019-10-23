@@ -19,8 +19,6 @@ variety of awesome features and we're planning to make it one of the
 most interactive cryptocurrency experiences to date. To find more
 information on Supernova click [here](INSERT_LINK).
 
-## Usage
-
 This repo contains a CLI for interacting with 3 blockchains: Bitcoin,
 Ethereum, and Cosmos, for the purposes of locking or querying
 statistics in the Supernova Lockdrop. At the highest level, you must
@@ -28,12 +26,55 @@ generate a Supernova address to receive your future Supernova coins.
 This functionality will be provided by the CLI; it may also be
 provided in various user interfaces.
 
+## Setup
+
+These lockdrop scripts expect Node v11.6. If you don't have it
+installed, we recommend using NVM:
+
+```
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.34.0/install.sh | bash
+nvm install
+nvm use
+yarn
+```
+
+You will then have to set up environment variables in `.env` to
+include any private keys, node URLs, or other data required for
+locking. Detailed instructions for each step are below.
+
+### Generating a Supernova address
+
+(To be completed.)
+
 ### Ethereum
 
-- To use the Ethereum lock functionality, you must provide an Ethereum
-  private key or path to an encrypted Ethereum keystore.
-- You will also need a remote or local node URL such as a INFURA node
-  path.
+- You must provide an Ethereum private key by setting ETH_PRIVATE_KEY,
+  or provide an encrypted Ethereum keystore by setting ETH_KEY_PATH.
+- You must also set up an Ethereum node path. You can get one by
+  registering on Infura at https://infura.io and using the free tier.
+  You can also use a local node, or a non-Infura Ethereum node.
+- You must generate a Supernova address.
+
+Your .env should look like this:
+
+```
+INFURA_PATH=https://mainnet.infura.io/v3/abc...
+ETH_PRIVATE_KEY=ABC...
+SUPERNOVA_ADDRESS=0x01...
+```
+
+You can now send a lock transaction. To lock 0.01 ETH, run:
+
+```
+yarn start --eth --lock 0.01
+```
+
+In order to verify that your lock transaction has happened, you can
+now run:
+
+```
+# TODO
+```
 
 ### Bitcoin
 
@@ -44,58 +85,50 @@ provided in various user interfaces.
   transaction data for further verification.
 
 To install bcoin, follow the guide
-[here](https://bcoin.io/guides/beginners.html). Then start a mainnet
-node with the following command:
+[here](https://bcoin.io/guides/beginners.html). The steps should
+approximately be:
+
+```
+git clone https://github.com/bcoin-org/bcoin.git
+cd bcoin
+npm install
+npm install -g # link globally
+```
+
+Once linked globally, you should be able to start a mainnet node with
+the following command. It will take some time to sync:
 
 ```
 bcoin
 ```
 
-Optionally, you can prune it and pass in an api key, an http url to
-connect to, and other commands (for testnets, and indexing txs
-etc.). Many of the options are described in the guide linked above:
-
-```
-bcoin --prune --api-key <API_KEY> --http-host=0.0.0.0 --index-tx --index-address
-```
-
-The command we use for testing is:
-
-```
-bcoin --network=regtest --http-host=0.0.0.0 --api-key=test --index-tx --index-address
-```
-
-Bcoin comes with a native wallet that you can use to fund new keys to
-participate in the lockdrop. To learn more about the commands to run,
-you can read the [API
-documentation](https://bcoin.io/api-docs/?shell--cli#wallet). If you
-choose to use a pruned node, be aware that there are technicalities
-with it interfacing with already funded wallets. We recommend a pruned
-node for fresh wallets that have not been funded prior to syncing the
-chain.
-
-### IPFS
-
-- Install `ipfs` globally to have access to the `jsipfs` command:
+Now, install `ipfs` globally to have access to the `jsipfs` command,
+and launch the ipfs daemon:
 
 ```
 npm install ipfs --global
-```
-
-- To launch the Daemon, run:
-
-```
 jsipfs daemon
 ```
 
 Once you have Bcoin and IPFS running, you can proceed with your lock!
 
-#### Cosmos
+Bcoin comes with a native wallet that you can use to fund new keys to
+participate in the lockdrop. To learn more about the commands to run,
+you can read the [API
+documentation](https://bcoin.io/api-docs/?shell--cli#wallet).
+
+(To be included, BTC/IPFS locking instructions.)
+
+(To be included, BTC/IPFS lock verification instructions.)
+
+### Cosmos
 
 - To use the Cosmos query functionality, you must provide a URL of the
   Cosmos node you want to query against or have one setup locally.
 
-(This section is still incomplete.)
+(To be included, ATOM locking instructions.)
+
+(To be included, ATOM lock verification instructions.)
 
 ## Environment variables
 
@@ -137,7 +170,16 @@ LEDGER_COIN_TYPE=
 LEDGER_DERIVATION_PATH=
 ```
 
-#### Some notes on locking
+### Locking
+
+
+yarn lock-btc
+
+yarn lock-eth
+
+yarn query-cosmos
+
+### Some notes on locking
 
 Locking in Bitcoin and Ethereum are very different. In Bitcoin, one
 must create a checktimelockverify (CTLV) transaction with a future
@@ -166,10 +208,36 @@ Bitcoin locks can ONLY be honored if they follow this protocol. In
 addition, locks will ONLY be honored if they adhere to the strict
 locktime of 6 months from the time of the transaction.
 
+### Advanced usage and development
+
+Optionally, you can set the Bitcoin node to enable pruning, provide an
+http server to connect to with an api key, or use other commands (for
+testnets, and indexing txs, etc.). Many of the options are described
+in the guide linked above.
+
+If you are running the tests in this package, the options we use are:
+
+```
+bcoin --network=regtest --http-host=0.0.0.0 --api-key=test --index-tx --index-address
+```
+
+If you choose to use a pruned node, be aware that there are
+technicalities with it interfacing with already funded wallets. We
+recommend a pruned node for fresh wallets that have not been funded
+prior to syncing the chain.
+
 ### Functionality
+- [] Supernova address generation
 - [x] ETH locking functionality with private key
 - [x] ETH locking functionality with encrypted private keystore, stored locally
+- [] ETH locking instructions
+- [] ETH lock verification instructions
 - [x] BTC locking functionality with mnemonic that is funded
 - [x] BTC locking functionality with native Bcoin wallet that is funded
+- [] BTC locking instructions
+- [] BTC lock verification instructions
 - [] BTC locking functionality using a Ledger hardware device
 - [x] Cosmos bonded delegators and validators querying
+- [] ATOM locking functionality (delegation)
+- [] ATOM locking instructions
+- [] ATOM lock verification instructions
