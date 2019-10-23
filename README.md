@@ -345,7 +345,8 @@ prior to syncing the chain.
 - [x] BTC locking instructions
 - [x] BTC lock verification instructions
 - [] BTC locking functionality using a Ledger hardware device
-- [x] Cosmos bonded delegators and validators querying
-- [x] ATOM (un)locking functionality
-- [] ATOM locking/bonding instructions
+- [] Cosmos bonded delegators and validators querying
+- [x] ATOM (un)locking functionality with gaiacli
+- [] ATOM (un)locking functionality without gaiacli
+- [x] ATOM locking/bonding instructions
 - [] ATOM lock/bond verification instructions (later)
