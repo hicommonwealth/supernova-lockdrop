@@ -69,13 +69,6 @@ You can now send a lock transaction. To lock 0.01 ETH, run:
 yarn start --eth --lock 0.01
 ```
 
-In order to verify that your lock transaction has happened, you can
-now run:
-
-```
-# TODO
-```
-
 ### Bitcoin
 
 - To use the Bitcoin lock functionality, you must provide a Bitcoin
@@ -119,16 +112,12 @@ documentation](https://bcoin.io/api-docs/?shell--cli#wallet).
 
 (To be included, BTC/IPFS locking instructions.)
 
-(To be included, BTC/IPFS lock verification instructions.)
-
 ### Cosmos
 
 - To use the Cosmos query functionality, you must provide a URL of the
   Cosmos node you want to query against or have one setup locally.
 
-(To be included, ATOM locking instructions.)
-
-(To be included, ATOM lock verification instructions.)
+(To be continued...)
 
 ## Environment variables
 
@@ -169,15 +158,6 @@ LEDGER_KEY_PURPOSE=
 LEDGER_COIN_TYPE=
 LEDGER_DERIVATION_PATH=
 ```
-
-### Locking
-
-
-yarn lock-btc
-
-yarn lock-eth
-
-yarn query-cosmos
 
 ### Some notes on locking
 
@@ -227,17 +207,19 @@ recommend a pruned node for fresh wallets that have not been funded
 prior to syncing the chain.
 
 ### Functionality
+
 - [] Supernova address generation
 - [x] ETH locking functionality with private key
 - [x] ETH locking functionality with encrypted private keystore, stored locally
 - [] ETH locking instructions
-- [] ETH lock verification instructions
 - [x] BTC locking functionality with mnemonic that is funded
 - [x] BTC locking functionality with native Bcoin wallet that is funded
 - [] BTC locking instructions
-- [] BTC lock verification instructions
-- [] BTC locking functionality using a Ledger hardware device
 - [x] Cosmos bonded delegators and validators querying
-- [] ATOM locking functionality (delegation)
+- [x] ATOM (un)locking functionality
 - [] ATOM locking instructions
-- [] ATOM lock verification instructions
+
+- [] ETH lock verification instructions (later)
+- [] BTC lock verification instructions (later)
+- [] ATOM lock verification instructions (later)
+- [] BTC locking functionality using a Ledger hardware device (later)
