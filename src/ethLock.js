@@ -4,7 +4,7 @@ import { Transaction as EthereumTx} from 'ethereumjs-tx';
 import jswallet from 'ethereumjs-wallet';
 import fs from 'fs';
 
-const { toBN, fromWei } = utils;
+const { toBN } = utils;
 export const LOCKDROP_JSON = JSON.parse(fs.readFileSync('./eth/build/contracts/Lockdrop.json').toString());
 export const LOCALHOST_URL = 'http://localhost:8545';
 

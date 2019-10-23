@@ -15,6 +15,7 @@
   },
   "scripts": {
     "cli-help": "ts-node ./src/index.ts --help",
+    "generate": "ts-node ./src/index.ts --generate",
     "lint": "tslint -c tslint.json 'src/**/*.ts'",
     "lock-btc": "ts-node ./src/index.ts --btc --lock",
     "lock-etc": "ts-node ./src/index.ts --eth --lock",

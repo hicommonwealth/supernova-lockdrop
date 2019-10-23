@@ -33,8 +33,8 @@ installed, we recommend using NVM:
 
 ```
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.34.0/install.sh | bash
-nvm install
-nvm use
+nvm install 11.6.0
+nvm use 11.6.0
 yarn
 ```
 
@@ -42,9 +42,27 @@ You will then have to set up environment variables in `.env` to
 include any private keys, node URLs, or other data required for
 locking. Detailed instructions for each step are below.
 
-### Generating a Supernova address
-
-(To be completed.)
+### Generating a Supernova address (and for other protocols)
+After running `npm` or `yarn` to install all the packages. You can now
+generate a Supernova keypair or keypair for another protocol. Note, if
+you want to generate a new bitcoin wallet (in bcoin) you will need a
+live bcoin node running locally.
+1. To generate a Supernova keypair:
+```
+yarn generate --supernova
+```
+2. To generate an Ethereum keypair:
+```
+yarn generate --eth
+```
+3. To generate a Bitcoin wallet and/or account in bcoin (must have running bcoin node):
+```
+yarn generate --btc --walletId=<...> --walletAccount=<...>
+```
+4. To generate a Cosmos keypair:
+```
+yarn generate --cosmos
+```
 
 ### Ethereum
 

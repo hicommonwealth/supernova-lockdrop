@@ -175,7 +175,7 @@ if (program.eth) {
     ) {
       const passphrase = program.passphrase || ETH_JSON_PASSWORD;
       if (program.generate) {
-        const result = eth.generateEncryptedWallet(passphrase)
+        const result = eth.generateEncryptedWallet(passphrase);
         saveOutput(result);
       } else {
         const key = getEthereumKeyFromEnvVar();
@@ -204,7 +204,6 @@ if (program.btc) {
     console.log(`Using the Supernova Lockdrop CLI ${msg} Bitcoin`);
     const ipfsMultiaddr = (program.ipfsMultiaddr) ? program.ipfsMultiaddr : IPFS_MULTIADDR;
     const supernovaAddress = (program.supernovaAddress) ? program.supernovaAddress : SUPERNOVA_ADDRESS;
-    const netname = (program.network) ? program.network : BTC_NETWORK_SETTING;
     const network = btc.getNetworkSetting((program.network) ? program.network : BTC_NETWORK_SETTING);
     const amountToFund = (program.lock) ? program.lock : '0.0';
     const walletId = (program.walletId) ? program.walletId : BCOIN_WALLET_ID;
