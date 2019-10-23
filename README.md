@@ -162,10 +162,51 @@ you can look up the data at the IPFS multihashes to visualize the data stored th
 
 ### Cosmos
 
-- To use the Cosmos query functionality, you must provide a URL of the
-  Cosmos node you want to query against or have one setup locally.
+- To use Cosmos functionality, you must provide a URL of the Cosmos
+  node you want to query against or have one setup locally.
+- You must also provide a validator node to delegate to (for specifics
+  on cosmos delegation functionality, see
+  [notes on Cosmos locking](#notes-on-cosmos-locking).
 
-(To be continued...)
+Ensure your .env file is configured with the following fields (we provide
+a Cosmos node on the gaia-13006 testnet at `149.28.47.49`, although we
+cannot make any guarantees about uptime):
+
+```
+TENDERMINT_URL=149.28.47.49:26657...
+COSMOS_KEY_PATH=cosmoskeystore.json...
+```
+
+If correctly configured the delegation or undelegation should occur
+immediately. See [notes on Cosmos locking](#notes-on-cosmos-locking)
+for information on how to verify the status of your delegation.
+
+Note that we also provide an option to use an installed `gaiacli` tool
+to perform the lock and unlock functionality. Its location must be specified
+in your .env file via `GAIACLI_PATH=...`. Instead of a `COSMOS_KEY_PATH`,
+it takes as an argument the name of the key as registered with the command
+`gaiacli keys add`, or as provided to the lock script if key generation is
+performed with the `--useGaia` flag. You will also need to provide the
+`--chain-id` flag specifying the ID of the chain, as `gaiacli` does not
+fetch this automatically. See example 2 below for the specific invocation
+required to lock and unlock in this way.
+
+#### Locking examples
+
+Ensure you have a live Cosmos node url configured before proceeding, as
+well as an active validator address, e.g.
+`cosmosvaloper1le0gdn7u8z4vyjyctp32zhmqd2wufvy5tkrd6x`.
+
+1. Lock 100 UATOM on a Cosmos network without using `gaiacli`:
+```
+yarn lock-atom 100 --validator cosmosvaloper1le0gdn7u8z4vyjyctp32zhmqd2wufvy5tkrd6x
+```
+2. Lock 100 UATOM on a Cosmos network, using an installed `gaiacli` tool,
+  previously registered with a key named "TestKey" and with `TENDERMINT_URL`
+  configured to point to a `gaia-13006` testnet.
+```
+yarn lock-atom 100 --useGaia --chainId gaia-13006 --keyName TestKey --validator cosmosvaloper1le0gdn7u8z4vyjyctp32zhmqd2wufvy5tkrd6x
+```
 
 ### Supernova
 
@@ -211,6 +252,12 @@ INFURA_PATH=...
 LEDGER_KEY_PURPOSE=...
 LEDGER_COIN_TYPE=...
 LEDGER_DERIVATION_PATH=...
+
+# Cosmos configuration environment variables
+# Active node URL
+TENDERMINT_URL=...
+# Cosmos private key file location (a path on your machine)
+COSMOS_KEY_PATH=...
 ```
 
 ### Some notes on locking
@@ -241,6 +288,32 @@ field, and we store the respective transaction data at that IPFS hash.
 Bitcoin locks can ONLY be honored if they follow this protocol. In
 addition, locks will ONLY be honored if they adhere to the strict
 locktime of 6 months from the time of the transaction.
+
+#### Notes on Cosmos locking
+
+Similarly, locking on Cosmos is different in that it does not involve a
+contract. All that is required is delegating some amount of tokens to an
+active validator on the cosmoshub mainnet, which will be automatically
+counted as a lock if still delegated at a chosen "lock height", the
+block when delegation amounts are counted. You can query the list of
+validators via the `gaiacli` tool, with `gaiacli query staking validators`.
+You may also need to provide a chain node to query via the `--node` flag
+and a chain ID using the `--chain-id` flag.
+
+As a result, unlocking can be a partial or a complete operation, in which
+you can either withdraw all delegated tokens, or some portion of them. We
+do not store the amount delegated via the command line, so to fully unlock
+will require looking up your total delegation via a block explorer or via
+the `gaiacli` tool (you can do this with `gaiacli query staking delegation`,
+providing a validator and a delegator addresses).
+
+A final note is that delegating on Cosmos also results in your account
+accumulating rewards, based on the configuration of the specific validator
+you've delegated to. These can also be withdrawn via the command line, using
+`gaiacli tx distribution withdraw-rewards`, specifying the validator address
+as well as your personal address via the `--from` flag. Note that you may need
+to provide `gaiacli` with your address's associated mnemonic, or else have your
+address configured with `gaiacli keys` before proceeding with this command.
 
 ### Advanced usage and development
 
