@@ -49,7 +49,8 @@ locking. Detailed instructions for each step are below.
 ### Ethereum
 
 - You must provide an Ethereum private key by setting ETH_PRIVATE_KEY,
-  or provide an encrypted Ethereum keystore by setting ETH_KEY_PATH.
+  or provide an encrypted Ethereum keystore by setting ETH_KEY_PATH,
+  ETH_JSON_VERSION, and ETH_JSON_PASSWORD.
 - You must also set up an Ethereum node path. You can get one by
   registering on Infura at https://infura.io and using the free tier.
   You can also use a local node, or a non-Infura Ethereum node.

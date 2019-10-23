@@ -1,13 +1,15 @@
 #!/usr/bin/env ts-node
 require('dotenv').config();
 import fs from 'fs';
-import program from 'commander';
-import path from 'path';
+import { Amount } from 'bcoin';
 import chalk from 'chalk';
 import child_process from 'child_process';
+import program from 'commander';
+import path from 'path';
+import { getNewWalletFromSeed } from '@lunie/cosmos-keys';
 import * as btc from './btcLock';
 import * as eth from './ethLock';
-import { Amount } from 'bcoin';
+const bip39 = require('bip39');
 
 // CLI Constants
 const LOCK_LENGTH = 182; // 182 days
@@ -42,22 +44,33 @@ const warning = chalk.keyword('orange');
 
 const execName = path.basename(process.argv[1]);
 
-function assert(condition, message) {
-  if (!condition) {
-      message = error.underline(message || "Assertion failed");
-      if (typeof Error !== "undefined") { throw new Error(message); }
-      throw message; // Fallback
+// wrapper for exec to get the correct input/output handling
+const exec = (cmd, quiet) => {
+  if (!quiet) console.log(`Exec: ${cmd}`);
+  return child_process.execSync(cmd, {
+    env: process.env,
+    stdio: [process.stdin, 'pipe', process.stderr],
+    encoding: null,
+  });
+}
+
+const saveOutput = (outputJSON) => {
+  if (program.output) {
+    fs.writeFileSync(program.output, JSON.stringify(outputJSON));
+  } else {
+    console.log(error('If you want to save a key to a file, pass in an output file path with -o <filename>'));
+    console.log(outputJSON);
   }
 }
 
-function printNoKeyError(customMsg) {
+const printNoKeyError = (customMsg) => {
   console.log('');
   console.log(`\t${error.underline('You must provide a private key as an environment variable!')}`);
   console.log(`\t${error.underline(`If you use an environment variable, ${customMsg}`)}`)
   console.log('');
 }
 
-function getEthereumKeyFromEnvVar() {
+const getEthereumKeyFromEnvVar = () => {
   return (ETH_PRIVATE_KEY)
     ? eth.getPrivateKeyFromEnvVar(ETH_PRIVATE_KEY)
     : eth.getPrivateKeyFromEncryptedJson(ETH_KEY_PATH, ETH_JSON_VERSION, ETH_JSON_PASSWORD);
@@ -82,11 +95,12 @@ program.version('1.0.0')
   .option('--walletId', 'A non-default wallet ID for bcoin configuration')
   .option('--walletAccount', 'A non-default wallet account for bcoin configuration')
 
-  // additional cosmos flags
+  // additional cosmos/supernova flags
   .option('--validator <address>', 'The cosmos validator to lock or unlock with')
   .option('--keyName <name>', 'The name of your cosmos key, as registered with gaiacli')
   .option('--chainId <id>', 'The ID of the cosmos chain to lock on (default: cosmoshub-2)', 'cosmoshub-2')
   .option('--dryRun', 'Simulate the cosmos transaction but do not broadcast')
+  .option('--useGaia', 'Use the Gaia CLI to execute the command (for generating keys)')
 
   // misc flags
   .option('-o, --output <filename>', 'Specify an output file for address or lock data')
@@ -162,12 +176,7 @@ if (program.eth) {
       const passphrase = program.passphrase || ETH_JSON_PASSWORD;
       if (program.generate) {
         const result = eth.generateEncryptedWallet(passphrase)
-        if (program.output) {
-          fs.writeFileSync(program.output, JSON.stringify(result));
-        } else {
-          console.log(error('If you want to save a key to a file, pass in an output file path with -o <filename>'));
-          console.log(result);
-        }
+        saveOutput(result);
       } else {
         const key = getEthereumKeyFromEnvVar();
         const infuraPath = program.infuraPath || INFURA_PATH;
@@ -221,12 +230,7 @@ if (program.btc) {
 
     if (program.generate) {
       const result = await btc.createOrGetAccount(wallet, account);
-      if (program.output) {
-        fs.writeFileSync(program.output, JSON.stringify(result));
-      } else {
-        console.log(error('If you want to save a key to a file, pass in an output file path with -o <filename>'));
-        console.log(result);
-      }
+      saveOutput(result);
     } else if (program.lock) {
       return await btc.lock(
         ipfsMultiaddr,
@@ -262,36 +266,34 @@ if (program.cosmos) {
       console.log(warning('cosmos does not support the --output flag, ignoring'));
     }
 
-    // wrapper for exec to get the correct input/output handling
-    const exec = (cmd) => {
-      if (!quiet) console.log(`Exec: ${cmd}`);
-      return child_process.execSync(cmd, {
-        env: process.env,
-        stdio: [process.stdin, 'pipe', process.stderr],
-        encoding: null,
-      });
-    }
-
-    // check if gaiacli is available
-    const version = exec(`${GAIACLI_PATH} version`);
-    // TODO: should we check version?
-    if (!version) {
-      console.log(error('gaiacli must be installed for cosmos functionality'));
-      process.exit(1);
-    } else if (!quiet) {
-      console.log('Found gaiacli at path: ' + GAIACLI_PATH + ', version: ' + version);
-    }
-
-    // functionality
-    if (program.generate) {
-      if (typeof program.generate !== 'string') {
-        console.log(error('must supply a key name to generate a cosmos address'));
+    if (program.useGaia) {
+      // check if gaiacli is available
+      const version = exec(`${GAIACLI_PATH} version`, quiet);
+      // TODO: should we check version?
+      if (!version) {
+        console.log(error('gaiacli must be installed for cosmos functionality'));
         process.exit(1);
+      } else if (!quiet) {
+        console.log('Found gaiacli at path: ' + GAIACLI_PATH + ', version: ' + version);
       }
-      // TODO: we may want to use the `--no-backup` flag to to avoid displaying the seed
-      //   phrase, but then it is lost forever.
-      const result = exec(`${GAIACLI_PATH} keys add ${program.generate}`);
-      console.log(result);
+    }
+
+    // generate cosmos key functionality
+    if (program.generate) {
+      if (program.useGaia) {
+        if (typeof program.generate !== 'string') {
+          console.log(error('must supply a key name to generate a cosmos address'));
+          process.exit(1);
+        }
+        // TODO: we may want to use the `--no-backup` flag to to avoid displaying the seed
+        //   phrase, but then it is lost forever.
+        const result = exec(`${GAIACLI_PATH} keys add ${program.generate}`, quiet);
+        console.log(result);
+      } else {
+        const mnemonic = bip39.generateMnemonic(256);
+        const {privateKey, publicKey, cosmosAddress } = getNewWalletFromSeed(mnemonic);
+        saveOutput({ mnemonic, privateKey, publicKey, cosmosAddress });
+      }
     } else {
       if (!program.keyName) {
         console.log(error('must provide gaiacli --keyName to lock or unlock on cosmos'));
@@ -306,7 +308,8 @@ if (program.cosmos) {
           `${GAIACLI_PATH} tx staking delegate --from ${program.keyName} ` +
           `--node ${COSMOS_TENDERMINT_URL} --chain-id ${program.chainId} ` +
           `${program.validator} ${program.lock}stake -y ` +
-          (program.dryRun ? '--dry-run ' : '')
+          (program.dryRun ? '--dry-run ' : ''),
+          quiet
         );
       } else if (program.unlock) {
         if (typeof program.unlock === 'boolean') {
@@ -317,9 +320,44 @@ if (program.cosmos) {
           `${GAIACLI_PATH} tx staking unbond --from ${program.keyName} ` +
           `--node ${COSMOS_TENDERMINT_URL} --chain-id ${program.chainId} ` +
           `${program.validator} ${program.unlock}stake -y ` +
-          (program.dryRun ? '--dry-run ' : '')
+          (program.dryRun ? '--dry-run ' : ''),
+          quiet
         );
       }
     }
   })();
+}
+
+if (program.supernova) {
+  const quiet = !program.verbose;
+  
+  if (program.useGaia) {
+    // check if gaiacli is available
+    const version = exec(`${GAIACLI_PATH} version`, quiet);
+    // TODO: should we check version?
+    if (!version) {
+      console.log(error('gaiacli must be installed for cosmos functionality'));
+      process.exit(1);
+    } else if (!quiet) {
+      console.log('Found gaiacli at path: ' + GAIACLI_PATH + ', version: ' + version);
+    }
+  }
+
+  // generate cosmos key functionality
+  if (program.generate) {
+    if (program.useGaia) {
+      if (typeof program.generate !== 'string') {
+        console.log(error('must supply a key name to generate a cosmos address'));
+        process.exit(1);
+      }
+      // TODO: we may want to use the `--no-backup` flag to to avoid displaying the seed
+      //   phrase, but then it is lost forever.
+      const result = exec(`${GAIACLI_PATH} keys add ${program.generate}`, quiet);
+      console.log(result);
+    } else {
+      const mnemonic = bip39.generateMnemonic(256);
+      const {privateKey, publicKey, cosmosAddress } = getNewWalletFromSeed(mnemonic);
+      saveOutput({ mnemonic, privateKey, publicKey, supernovaAddress: cosmosAddress });
+    }
+  }
 }
