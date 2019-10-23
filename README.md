@@ -4,26 +4,25 @@ Multi-chain lockdrop contracts for Supernova.
 
 ## Overview
 
-This repo contains scripts for executing time-lock transactions in
-Bitcoin and Ethereum as well as querying the Cosmos chain for active,
-bonded participants. Time-lock transactions are transactions where one
-locks up their cryptocurrency of choice for a specified amount of
-time. In the case of the Supernova Lockdrop, the time-lock length is 6
-months or 182 days.
-
-The Supernova Lockdrop is a distribution mechanism for rewarding
-lockdrop participants with tokens on the Supernova chain at
-launch. The Supernova chain is a new blockchain that will be built
+The Supernova chain is a new blockchain that will be built
 using the Cosmos SDK and integrate into the Cosmos ecosystem. It has a
 variety of awesome features and we're planning to make it one of the
 most interactive cryptocurrency experiences to date. To find more
 information on Supernova click [here](INSERT_LINK).
 
-This repo contains a CLI for interacting with 3 blockchains: Bitcoin,
-Ethereum, and Cosmos, for the purposes of locking or querying
-statistics in the Supernova Lockdrop. At the highest level, you must
-generate a Supernova address to receive your future Supernova coins.
-This functionality will be provided by the CLI; it may also be
+The Supernova Lockdrop is a distribution mechanism for rewarding
+lockdrop participants with tokens on the Supernova chain at
+launch.
+
+The repo contains scripts for generating a Supernova address for your
+future coins, executing time-lock transactions in Bitcoin and
+Ethereum, and bonding to a Cosmos Hub validator configured to
+manage ATOM participation in the Supernova Lockdrop.
+
+Time-lock transactions are transactions where one locks up their
+cryptocurrency of choice for a specified amount of time. In the case
+of the Supernova Lockdrop, the time-lock length is 6 months or 182
+days. This functionality will be provided by the CLI; it may also be
 provided in various user interfaces.
 
 ## Setup
@@ -64,6 +63,7 @@ yarn generate --btc --walletId=<...> --walletAccount=<...>
 yarn generate --cosmos
 ```
 
+
 ### Ethereum
 
 - You must provide an Ethereum private key by setting ETH_PRIVATE_KEY,
@@ -93,6 +93,7 @@ yarn start --eth --lock 0.01
 
 In order to verify that your lock transaction has happened, visit Etherscan
 and paste the transaction hash you got from the CLI output to visualize it.
+
 
 ### Bitcoin
 
@@ -158,14 +159,13 @@ in your project directory. You can use the hash of the `lockedTx` to verify
 that the transaction was broadcasted on any Bitcoin blockchain explorer. Similarly,
 you can look up the data at the IPFS multihashes to visualize the data stored there. 
 
+
 ### Cosmos
 
 - To use the Cosmos query functionality, you must provide a URL of the
   Cosmos node you want to query against or have one setup locally.
 
-(To be included, ATOM locking instructions.)
-
-(To be included, ATOM lock verification instructions.)
+(To be continued...)
 
 ### Supernova
 
@@ -212,15 +212,6 @@ LEDGER_KEY_PURPOSE=...
 LEDGER_COIN_TYPE=...
 LEDGER_DERIVATION_PATH=...
 ```
-
-### Locking
-
-
-yarn lock-btc
-
-yarn lock-eth
-
-yarn query-cosmos
 
 ### Some notes on locking
 
@@ -270,6 +261,7 @@ recommend a pruned node for fresh wallets that have not been funded
 prior to syncing the chain.
 
 ### Functionality
+
 - [] Supernova address generation
 - [x] ETH locking functionality with private key
 - [x] ETH locking functionality with encrypted private keystore, stored locally
@@ -281,6 +273,6 @@ prior to syncing the chain.
 - [x] BTC lock verification instructions
 - [] BTC locking functionality using a Ledger hardware device
 - [x] Cosmos bonded delegators and validators querying
-- [] ATOM locking functionality (delegation)
-- [] ATOM locking instructions
-- [] ATOM lock verification instructions
+- [x] ATOM (un)locking functionality
+- [] ATOM locking/bonding instructions
+- [] ATOM lock/bond verification instructions (later)
