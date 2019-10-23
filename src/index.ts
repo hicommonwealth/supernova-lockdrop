@@ -4,9 +4,9 @@ import fs from 'fs';
 import program from 'commander';
 import path from 'path';
 import chalk from 'chalk';
+import child_process from 'child_process';
 import * as btc from './btcLock';
 import * as eth from './ethLock';
-import { Getters, queryLocks } from './cosmosQuery';
 import { Amount } from 'bcoin';
 
 // CLI Constants
@@ -30,7 +30,8 @@ const ETH_JSON_VERSION = process.env.ETH_JSON_VERSION;
 const INFURA_PATH = process.env.INFURA_PATH;
 // Cosmos/Supernova
 const SUPERNOVA_ADDRESS = process.env.SUPERNOVA_ADDRESS;
-const COSMOS_REST_URL = process.env.COSMOS_REST_URL || 'http://149.28.47.49:1318';
+const COSMOS_TENDERMINT_URL = process.env.COSMOS_TENDERMINT_URL || 'http://149.28.47.49:26657';
+const GAIACLI_PATH = process.env.GAIACLI_PATH || 'gaiacli';
 // Ledger parameters (NOT WORKING)
 const LEDGER_KEY_PURPOSE = process.env.LEDGER_KEY_PURPOSE || 44;
 const LEDGER_COIN_TYPE = process.env.LEDGER_COIN_TYPE || 0;
@@ -64,20 +65,32 @@ function getEthereumKeyFromEnvVar() {
 
 program.version('1.0.0')
   .name(execName)
+  // chains
   .option('--eth', 'Use ETH protocol commands')
   .option('--btc', 'Use BTC protocol commands')
   .option('--cosmos', 'Use Cosmos protocol commands')
   .option('--supernova', 'Use Supernova protocol commands. The only command is to generate an account')
-  .option('--generate', 'Generate an account/address with the signalled protocol. You must indicate a protocol')
+  
+  // actions
+  .option('--generate [keyName]', 'Generate an account/address with the signalled protocol. You must indicate a protocol')
   .option('--lock <amount>', 'Lock some number of tokens using decimal representation')
-  .option('--query <lockHeight>', 'Query the cosmos chain')
-  .option('--unlock', 'Unlock tokens')
-  .option('--debug', 'Turn full debug logs on')
+  .option('--unlock [amount]', 'Unlock tokens using decimal representation (argumed used to partial unlock on Cosmos)')
+
+  // additional btc flags
   .option('--nativeWallet', 'Flag for signalling use of the native Bcoin wallet')
   .option('--usingLedger', 'Flag for signalling use of a compatible Ledger device')
   .option('--walletId', 'A non-default wallet ID for bcoin configuration')
   .option('--walletAccount', 'A non-default wallet account for bcoin configuration')
-  .option('-o, --output <filename>', 'Specify an output file for address, query, or lock data')
+
+  // additional cosmos flags
+  .option('--validator <address>', 'The cosmos validator to lock or unlock with')
+  .option('--keyName <name>', 'The name of your cosmos key, as registered with gaiacli')
+  .option('--chainId <id>', 'The ID of the cosmos chain to lock on (default: cosmoshub-2)', 'cosmoshub-2')
+  .option('--dryRun', 'Simulate the cosmos transaction but do not broadcast')
+
+  // misc flags
+  .option('-o, --output <filename>', 'Specify an output file for address or lock data')
+  .option('-d, --debug', 'Turn full debug logs on')
   .option('-v, --verbose', 'Print more log output');
 
 program.on('--help', () => {
@@ -96,13 +109,47 @@ if (program.usingLedger) {
   program.ledgerKeyDPath = program.ledgerKeyDPath || process.env.LEDGER_DERIVATION_PATH;
 }
 
-const msg = `${(program.lock)
+// ARGUMENT VALIDATION
+const nMutuallyExclusiveChains = [
+  program.cosmos,
+  program.eth,
+  program.btc,
+  program.supernova,
+].filter((arg) => arg).length;
+
+if (nMutuallyExclusiveChains === 0) {
+  console.log(error('must provide either --cosmos, --eth, --btc, or --supernova'));
+  process.exit(1);
+}
+
+if (nMutuallyExclusiveChains > 1) {
+  console.log(error('can only provide one chain argument out of --cosmos, --eth, --btc, and --supernova'));
+  process.exit(1);
+}
+
+const nMutuallyExclusiveActions = [
+  !!program.lock,
+  !!program.unlock,
+  !!program.generate,
+].filter((arg) => arg).length;
+
+if (nMutuallyExclusiveActions === 0) {
+  console.log(error('must provide either, --lock, --unlock, or --generate'))
+  process.exit(1);
+}
+if (nMutuallyExclusiveActions > 1) {
+  console.log(error('must only provide one of --lock, --unlock, --generate'));
+  process.exit(1);
+}
+
+// FUNCTIONALITY
+const msg = program.lock
   ? 'to lock on'
-  : (program.cosmos)
-    ? 'to query the lockdrop on'
-    : (program.generate)
-      ? 'generate an address on'
-      : 'to unlock on'}`;
+  : program.unlock
+    ? 'to unlock on'
+    : program.generate
+      ? 'to generate an address on'
+      : 'INVALID';
 
 if (program.eth) {
   (async () => {
@@ -127,9 +174,14 @@ if (program.eth) {
         const lockdropContractAddress = program.lockdropContractAddress || LOCKDROP_CONTRACT_ADDRESS;
         const supernovaAddress = program.supernovaAddress || SUPERNOVA_ADDRESS;
 
-        return (program.lock)
-          ? await eth.lock(key, program.lock, supernovaAddress, lockdropContractAddress, infuraPath)
-          : await eth.unlock(key, lockdropContractAddress, infuraPath);
+        if (program.lock) {
+          return await eth.lock(key, program.lock, supernovaAddress, lockdropContractAddress, infuraPath);
+        } else if (program.unlock) {
+          return await eth.unlock(key, lockdropContractAddress, infuraPath);
+        } else {
+          console.log(error('invalid action'));
+          process.exit(1);
+        }
       }
     } else {
       printNoKeyError('ensure your Ethereum key is formatted under ETH_PRIVATE_KEY or stored as a keystore file under ETH_KEY_PATH');
@@ -175,45 +227,99 @@ if (program.btc) {
         console.log(error('If you want to save a key to a file, pass in an output file path with -o <filename>'));
         console.log(result);
       }
+    } else if (program.lock) {
+      return await btc.lock(
+        ipfsMultiaddr,
+        supernovaAddress,
+        Amount.fromBTC(amountToFund),
+        network,
+        nodeClient,
+        wallet,
+        account,
+        usingLedger,
+        ledgerBcoin,
+        program.debug);
+    } else if (program.unlock) {
+      return await btc.redeem(
+        network,
+        nodeClient,
+        wallet,
+        program.debug
+      );
     } else {
-      return (program.lock)
-        ? await btc.lock(
-          ipfsMultiaddr,
-          supernovaAddress,
-          Amount.fromBTC(amountToFund),
-          network,
-          nodeClient,
-          wallet,
-          account,
-          usingLedger,
-          ledgerBcoin,
-          program.debug)
-        : await btc.redeem(
-          network,
-          nodeClient,
-          wallet,
-          program.debug
-        );
+      console.log(error('invalid action'));
+      process.exit(1);
     }
   })();
 }
 
 if (program.cosmos) {
   (async () => {
-    console.log(`Using the Supernova Lockdrop CLI ${msg} Cosmos`);
-    // initialize getters for API
     const quiet = !program.verbose;
-    // const getters = new Getters(COSMOS_REST_URL, quiet);
-    // await getters.init();
-  
-    // // query validator and delegator information to compute locks
-    // const lockHeight = program.query || getters.latestHeight;
-    // const locks = await queryLocks(getters, lockHeight, quiet);
-    // const lockJson = JSON.stringify(locks, null, 2);
-    // if (program.output) {
-    //   fs.writeFileSync(program.output, lockJson);
-    // } else {
-    //   process.stdout.write(lockJson);
-    // }
+
+    console.log(`Using the Supernova Lockdrop CLI ${msg} Cosmos`);
+    if (program.output) {
+      console.log(warning('cosmos does not support the --output flag, ignoring'));
+    }
+
+    // wrapper for exec to get the correct input/output handling
+    const exec = (cmd) => {
+      if (!quiet) console.log(`Exec: ${cmd}`);
+      return child_process.execSync(cmd, {
+        env: process.env,
+        stdio: [process.stdin, 'pipe', process.stderr],
+        encoding: null,
+      });
+    }
+
+    // check if gaiacli is available
+    const version = exec(`${GAIACLI_PATH} version`);
+    // TODO: should we check version?
+    if (!version) {
+      console.log(error('gaiacli must be installed for cosmos functionality'));
+      process.exit(1);
+    } else if (!quiet) {
+      console.log('Found gaiacli at path: ' + GAIACLI_PATH + ', version: ' + version);
+    }
+
+    // functionality
+    if (program.generate) {
+      if (typeof program.generate !== 'string') {
+        console.log(error('must supply a key name to generate a cosmos address'));
+        process.exit(1);
+      }
+      // TODO: we may want to use the `--no-backup` flag to to avoid displaying the seed
+      //   phrase, but then it is lost forever.
+      const result = exec(`${GAIACLI_PATH} keys add ${program.generate}`);
+      console.log(result);
+    } else {
+      if (!program.keyName) {
+        console.log(error('must provide gaiacli --keyName to lock or unlock on cosmos'));
+        process.exit(1);
+      }
+      if (!program.validator) {
+        console.log(error('must provide --validator to lock or unlock on cosmos'));
+      }
+      // TODO: should we move some of these arguments into the env file?
+      if (program.lock) {
+        const result = exec(
+          `${GAIACLI_PATH} tx staking delegate --from ${program.keyName} ` +
+          `--node ${COSMOS_TENDERMINT_URL} --chain-id ${program.chainId} ` +
+          `${program.validator} ${program.lock}stake -y ` +
+          (program.dryRun ? '--dry-run ' : '')
+        );
+      } else if (program.unlock) {
+        if (typeof program.unlock === 'boolean') {
+          console.log(error('must provide unlock amount (in stake) on cosmos'));
+          process.exit(1);
+        }
+        const result = exec(
+          `${GAIACLI_PATH} tx staking unbond --from ${program.keyName} ` +
+          `--node ${COSMOS_TENDERMINT_URL} --chain-id ${program.chainId} ` +
+          `${program.validator} ${program.unlock}stake -y ` +
+          (program.dryRun ? '--dry-run ' : '')
+        );
+      }
+    }
   })();
 }
