@@ -165,7 +165,7 @@ export const getNetworkSetting = (network) => {
     case 'mainnet':
       return Network.get('main');
     default:
-      return Network.get('main');
+      return Network.get('regtest');
   }
 }
 
@@ -201,7 +201,6 @@ export const lock = async (
   ledgerBcoin,
   debug: Number = 0,
 ) => {
-  console.log(multiAddr, cosmosAddress, amountToFund, network, account, usingLedger);
   const txInfoPath = './tx-info.json'; // this is where we'll persist our info
   // init variables
   let redeemScript, lockingAddr, lockedTx;

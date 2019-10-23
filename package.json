@@ -14,10 +14,14 @@
     "node": "v11.6.0"
   },
   "scripts": {
+    "cli-help": "ts-node ./src/index.ts --help",
     "lint": "tslint -c tslint.json 'src/**/*.ts'",
+    "lock-btc": "ts-node ./src/index.ts --btc --lock",
+    "lock-etc": "ts-node ./src/index.ts --eth --lock",
     "start": "ts-node ./src/index.ts",
     "test": "ts-mocha ./test/*.spec.ts",
-    "test-eth": "ts-mocha ./test/eth*"
+    "test-eth": "ts-mocha ./test/eth*",
+    "test-btc": "ts-mocha ./test/btc*"
   },
   "dependencies": {
     "@lunie/cosmos-keys": "^0.0.11",

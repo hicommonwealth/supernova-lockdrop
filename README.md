@@ -63,19 +63,18 @@ INFURA_PATH=https://mainnet.infura.io/v3/abc...
 ETH_PRIVATE_KEY=ABC...
 SUPERNOVA_ADDRESS=0x01...
 ```
+You can now send a lock transaction.
 
-You can now send a lock transaction. To lock 0.01 ETH, run:
-
+#### Locking examples
+1. Lock 0.01 ETH on the network linked by `INFURA_PATH`
 ```
 yarn start --eth --lock 0.01
 ```
 
-In order to verify that your lock transaction has happened, you can
-now run:
+#### Verification examples
 
-```
-# TODO
-```
+In order to verify that your lock transaction has happened, visit Etherscan
+and paste the transaction hash you got from the CLI output to visualize it.
 
 ### Bitcoin
 
@@ -119,8 +118,27 @@ you can read the [API
 documentation](https://bcoin.io/api-docs/?shell--cli#wallet).
 
 (To be included, BTC/IPFS locking instructions.)
+#### Locking examples
+Ensure you have a live, local Bcoin node for the respective network and
+an IPFS daemon or remote IPFS node before proceeding.
+1. Lock 0.5 BTC on a Bitcoin regtest network with default wallet settings:
+```
+yarn lock-btc 0.5 (optionally, --network=regtest)
+```
+2. Lock 0.5 BTC on the main Bitcoin network with default wallet settings:
+```
+yarn lock-btc 0.5 --network=main
+```
+3. Lock 0.5 BTC on the main Bitcoin network with non-default wallet settings:
+```
+yarn lock-btc 1 --walletId=test --walletAccount=default --network=main
+```
 
-(To be included, BTC/IPFS lock verification instructions.)
+#### Verification examples
+Once you successfully lock, you will have a file named `tx-info.json` generated
+in your project directory. You can use the hash of the `lockedTx` to verify
+that the transaction was broadcasted on any Bitcoin blockchain explorer. Similarly,
+you can look up the data at the IPFS multihashes to visualize the data stored there. 
 
 ### Cosmos
 
@@ -131,6 +149,12 @@ documentation](https://bcoin.io/api-docs/?shell--cli#wallet).
 
 (To be included, ATOM lock verification instructions.)
 
+### Supernova
+
+- There are no requirements besides installing and running the CLI
+  key generation command to generate keychains. We recommend passing
+  in an output filename to store the keystore to.
+
 ## Environment variables
 
 The CLI uses environment variables to configure the desired
@@ -140,35 +164,35 @@ participation methods.
 
 ```
 # Supernova Address
-SUPERNOVA_ADDRESS=0x01
+SUPERNOVA_ADDRESS=...
 
 # Bitcoin configuration environment variables
 # BTC mnemonic seed
-BTC_BIP39_MNEMONIC_SEED="donate smooth boy ostrich fiction alcohol range struggle extra input fancy chapter organ cake transfer start balance sorry whip stem carpet finish novel among"
+BTC_BIP39_MNEMONIC_SEED="..."
 
 # IPFS configuration environment variables
 # Multiaddress to connect for storing data on timelocks
-IPFS_MULTIADDR=
+IPFS_MULTIADDR=...
 
 # Ethereum configuration environment variables
 # Lockdrop contract on Ethereum
-LOCKDROP_CONTRACT_ADDRESS=
+LOCKDROP_CONTRACT_ADDRESS=...
 # ETH private key hex
-ETH_PRIVATE_KEY=
+ETH_PRIVATE_KEY=...
 # ETH private key file location (a path on your machine)
-ETH_KEY_PATH=
+ETH_KEY_PATH=...
 # ETH version of encrypted JSON file (either v1, v2, or ethsale)
-ETH_JSON_VERSION=
+ETH_JSON_VERSION=...
 # ETH encrypted JSON file password (alternative to providing provide key)
-ETH_JSON_PASSWORD=
+ETH_JSON_PASSWORD=...
 
 # Infura path for sending ETH transactions to remote Infura node
-INFURA_PATH=
+INFURA_PATH=...
 
-# Ledger configuration
-LEDGER_KEY_PURPOSE=
-LEDGER_COIN_TYPE=
-LEDGER_DERIVATION_PATH=
+# Ledger configuration (not currently supported)
+LEDGER_KEY_PURPOSE=...
+LEDGER_COIN_TYPE=...
+LEDGER_DERIVATION_PATH=...
 ```
 
 ### Locking

@@ -90,10 +90,10 @@ program.version('1.0.0')
   .option('--unlock [amount]', 'Unlock tokens using decimal representation (argumed used to partial unlock on Cosmos)')
 
   // additional btc flags
-  .option('--nativeWallet', 'Flag for signalling use of the native Bcoin wallet')
   .option('--usingLedger', 'Flag for signalling use of a compatible Ledger device')
-  .option('--walletId', 'A non-default wallet ID for bcoin configuration')
-  .option('--walletAccount', 'A non-default wallet account for bcoin configuration')
+  .option('--walletId <id>', 'A non-default wallet ID for bcoin configuration')
+  .option('--walletAccount <account>', 'A non-default wallet account for bcoin configuration')
+  .option('--network <network>', 'The BTC network to use: "main", "regtest", etc. The default is "regtest"')
 
   // additional cosmos/supernova flags
   .option('--validator <address>', 'The cosmos validator to lock or unlock with')
@@ -179,9 +179,9 @@ if (program.eth) {
         saveOutput(result);
       } else {
         const key = getEthereumKeyFromEnvVar();
-        const infuraPath = program.infuraPath || INFURA_PATH;
-        const lockdropContractAddress = program.lockdropContractAddress || LOCKDROP_CONTRACT_ADDRESS;
-        const supernovaAddress = program.supernovaAddress || SUPERNOVA_ADDRESS;
+        const infuraPath = (program.infuraPath) ? program.infuraPath : INFURA_PATH;
+        const lockdropContractAddress = (program.lockdropContractAddress) ? program.lockdropContractAddress : LOCKDROP_CONTRACT_ADDRESS;
+        const supernovaAddress = (program.supernovaAddress) ? program.supernovaAddress : SUPERNOVA_ADDRESS;
 
         if (program.lock) {
           return await eth.lock(key, program.lock, supernovaAddress, lockdropContractAddress, infuraPath);
@@ -202,19 +202,20 @@ if (program.eth) {
 if (program.btc) {
   (async () => {
     console.log(`Using the Supernova Lockdrop CLI ${msg} Bitcoin`);
-    const ipfsMultiaddr = program.ipfsMultiaddr || IPFS_MULTIADDR;
-    const supernovaAddress = program.supernovaAddress || SUPERNOVA_ADDRESS;
-    const network = btc.getNetworkSetting(BTC_NETWORK_SETTING);
-    const amountToFund = program.lock || '0';
-    const walletId = program.walletID || BCOIN_WALLET_ID;
-    const account = program.walletAccount || BCOIN_WALLET_ACCOUNT;
-    const passphrase = program.passphrase || BCOIN_WALLET_PASSPHRASE;
-    const ledgerKeyPurpose = program.ledgerKeyPurpose || LEDGER_KEY_PURPOSE;
-    const ledgerKeyCoinType = program.ledgerKeyCoinType || LEDGER_COIN_TYPE;
-    const ledgerKeyDPath = program.ledgerKeyDPath || LEDGER_DERIVATION_PATH;
-    const usingLedger = program.usingLedger || false;
+    const ipfsMultiaddr = (program.ipfsMultiaddr) ? program.ipfsMultiaddr : IPFS_MULTIADDR;
+    const supernovaAddress = (program.supernovaAddress) ? program.supernovaAddress : SUPERNOVA_ADDRESS;
+    const netname = (program.network) ? program.network : BTC_NETWORK_SETTING;
+    const network = btc.getNetworkSetting((program.network) ? program.network : BTC_NETWORK_SETTING);
+    const amountToFund = (program.lock) ? program.lock : '0.0';
+    const walletId = (program.walletId) ? program.walletId : BCOIN_WALLET_ID;
+    const account = (program.walletAccount) ? program.walletAccount : BCOIN_WALLET_ACCOUNT;
+    const passphrase = (program.passphrase) ? program.passphrase : BCOIN_WALLET_PASSPHRASE;
+    const ledgerKeyPurpose = (program.ledgerKeyPurpose) ? program.ledgerKeyPurpose : LEDGER_KEY_PURPOSE;
+    const ledgerKeyCoinType = (program.ledgerKeyCoinType) ? program.ledgerKeyCoinType : LEDGER_COIN_TYPE;
+    const ledgerKeyDPath = (program.ledgerKeyDPath) ? program.ledgerKeyDPath : LEDGER_DERIVATION_PATH;
+    const usingLedger = (program.usingLedger) ? program.usingLedger : false;
     const apiKey = program.apiKey || 'test';
-    console.log(`Ledger: ${usingLedger}, Wallet: ${walletId}, Amount: ${amountToFund}, Account: ${account}, Multiaddr: ${ipfsMultiaddr}`)
+    if (program.debug) console.log(`Ledger: ${usingLedger}, Wallet: ${walletId}, Amount: ${amountToFund}, Account: ${account}, Multiaddr: ${ipfsMultiaddr}`)
     const { nodeClient, walletClient } = btc.setupBcoin(network, apiKey);
     const { wallet, ledgerBcoin } = await btc.getBcoinWallet(
       usingLedger,
@@ -232,7 +233,8 @@ if (program.btc) {
       const result = await btc.createOrGetAccount(wallet, account);
       saveOutput(result);
     } else if (program.lock) {
-      return await btc.lock(
+      console.log(`Using bcoin wallet id - ${walletId}, account - ${account} to lock ${amountToFund} BTC`);
+      await btc.lock(
         ipfsMultiaddr,
         supernovaAddress,
         Amount.fromBTC(amountToFund),
@@ -242,14 +244,18 @@ if (program.btc) {
         account,
         usingLedger,
         ledgerBcoin,
-        program.debug);
+        program.debug
+      );
+      console.log(error(`A lock-tx.json file has been created in the project directory. Save this for future unlocking!`));
+      return;
     } else if (program.unlock) {
-      return await btc.redeem(
+      await btc.redeem(
         network,
         nodeClient,
         wallet,
         program.debug
       );
+      return;
     } else {
       console.log(error('invalid action'));
       process.exit(1);
@@ -259,6 +265,12 @@ if (program.btc) {
 
 if (program.cosmos) {
   (async () => {
+    // If we are not generating keys, we must use Gaia.
+    // All other commands require using the Gaia CLI.
+    if (!program.generate) {
+      program.useGaia = true;
+    }
+
     const quiet = !program.verbose;
 
     console.log(`Using the Supernova Lockdrop CLI ${msg} Cosmos`);
