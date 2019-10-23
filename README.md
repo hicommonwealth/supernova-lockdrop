@@ -4,26 +4,25 @@ Multi-chain lockdrop contracts for Supernova.
 
 ## Overview
 
-This repo contains scripts for executing time-lock transactions in
-Bitcoin and Ethereum as well as querying the Cosmos chain for active,
-bonded participants. Time-lock transactions are transactions where one
-locks up their cryptocurrency of choice for a specified amount of
-time. In the case of the Supernova Lockdrop, the time-lock length is 6
-months or 182 days.
-
-The Supernova Lockdrop is a distribution mechanism for rewarding
-lockdrop participants with tokens on the Supernova chain at
-launch. The Supernova chain is a new blockchain that will be built
+The Supernova chain is a new blockchain that will be built
 using the Cosmos SDK and integrate into the Cosmos ecosystem. It has a
 variety of awesome features and we're planning to make it one of the
 most interactive cryptocurrency experiences to date. To find more
 information on Supernova click [here](INSERT_LINK).
 
-This repo contains a CLI for interacting with 3 blockchains: Bitcoin,
-Ethereum, and Cosmos, for the purposes of locking or querying
-statistics in the Supernova Lockdrop. At the highest level, you must
-generate a Supernova address to receive your future Supernova coins.
-This functionality will be provided by the CLI; it may also be
+The Supernova Lockdrop is a distribution mechanism for rewarding
+lockdrop participants with tokens on the Supernova chain at
+launch.
+
+The repo contains scripts for generating a Supernova address for your
+future coins, executing time-lock transactions in Bitcoin and
+Ethereum, and bonding to a Cosmos Hub validator configured to
+manage ATOM participation in the Supernova Lockdrop.
+
+Time-lock transactions are transactions where one locks up their
+cryptocurrency of choice for a specified amount of time. In the case
+of the Supernova Lockdrop, the time-lock length is 6 months or 182
+days. This functionality will be provided by the CLI; it may also be
 provided in various user interfaces.
 
 ## Setup
