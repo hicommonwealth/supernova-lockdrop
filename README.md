@@ -273,12 +273,12 @@ prior to syncing the chain.
 - [] Supernova address generation
 - [x] ETH locking functionality with private key
 - [x] ETH locking functionality with encrypted private keystore, stored locally
-- [] ETH locking instructions
-- [] ETH lock verification instructions
+- [x] ETH locking instructions
+- [x] ETH lock verification instructions
 - [x] BTC locking functionality with mnemonic that is funded
 - [x] BTC locking functionality with native Bcoin wallet that is funded
-- [] BTC locking instructions
-- [] BTC lock verification instructions
+- [x] BTC locking instructions
+- [x] BTC lock verification instructions
 - [] BTC locking functionality using a Ledger hardware device
 - [x] Cosmos bonded delegators and validators querying
 - [] ATOM locking functionality (delegation)
