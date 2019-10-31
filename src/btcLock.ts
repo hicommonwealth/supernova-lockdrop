@@ -425,10 +425,9 @@ export const getTxDataFromIPFS = async (txsOfInterest, nodeClient, network, mult
               const lockingAddr = getAddress(regeneratedScript, network);
               // Check final addresses match
               return (parsedIpfsData[inx].lockingAddr === lockingAddr) ? {
-                supernovaAddress: parsedIpfsData[inx].supernovaAddress,
+                ...parsedIpfsData[inx],
                 lockAmt: output.value,
                 lockAddr: output.scriptPubKey.addresses[0],
-                mtime: parsedIpfsData[inx].prevTx.mtime,
               } : false;
             }
           }
