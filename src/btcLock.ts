@@ -456,7 +456,11 @@ export const queryAllLocks = async (startBlock, endBlock, nodeClient, network, m
             try {
               let mh = multihashes.decode(multihashes.fromB58String(potentialHash))
               if (multihashes.isValidCode(mh.code)) {
-                txsOfInterest.push([decodedTx, potentialHash, tx]);
+                txsOfInterest.push([
+                  decodedTx,
+                  potentialHash,
+                  Object.assign({}, tx, { height: i })
+                ]);
               }
             } catch (e) {
               // fail gracefully
