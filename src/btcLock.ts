@@ -425,7 +425,7 @@ export const getTxDataFromIPFS = async (txsOfInterest, nodeClient, network, mult
               const lockingAddr = getAddress(regeneratedScript, network);
               // Check final addresses match
               return (parsedIpfsData[inx].lockingAddr === lockingAddr) ? {
-                ...parsedIpfsData[inx],
+                ...txData[2],
                 lockAmt: output.value,
                 lockAddr: output.scriptPubKey.addresses[0],
               } : false;
@@ -456,7 +456,7 @@ export const queryAllLocks = async (startBlock, endBlock, nodeClient, network, m
             try {
               let mh = multihashes.decode(multihashes.fromB58String(potentialHash))
               if (multihashes.isValidCode(mh.code)) {
-                txsOfInterest.push([decodedTx, potentialHash]);
+                txsOfInterest.push([decodedTx, potentialHash, tx]);
               }
             } catch (e) {
               // fail gracefully
@@ -483,7 +483,7 @@ export const queryIndividualLock = async (queryObj: { address?: string, txHash?:
           try {
             let mh = multihashes.decode(multihashes.fromB58String(potentialHash))
             if (multihashes.isValidCode(mh.code)) {
-              txTemplate = [decodedTx, potentialHash];
+              txTemplate = [decodedTx, potentialHash, tx];
             }
           } catch (e) {
             // fail gracefully
