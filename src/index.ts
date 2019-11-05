@@ -480,7 +480,8 @@ if (program.cosmos) {
           msg = cosmos.MsgUndelegate(cosmosAddress, { validatorAddress, amount, denom });
         }
         // memo can be anything
-        const gasEstimate = await msg.simulate({ memo: 'supernova' });
+        const memo = program.lock ? JSON.stringify({ supernovaAddress: program.supernovaAddress }) : '';
+        const gasEstimate = await msg.simulate({ memo });
         // TODO: add ledger support
         const signer = async (msgToSign: string) => {
           // we use the direct crypto here rather than the library because of a strange bug involving
@@ -489,7 +490,7 @@ if (program.cosmos) {
           const { signature } = secp256k1.sign(signHash, Buffer.from(privateKey, 'hex'));
           return { signature, publicKey: Buffer.from(publicKey, 'hex') };
         };
-        const { included } = await msg.send({ gas: gasEstimate.toString(), memo: 'supernova' }, signer);
+        const { included } = await msg.send({ gas: gasEstimate.toString(), memo }, signer);
         try {
           const { height, timestamp } = await included();
           console.log(`${program.lock ? 'Locked' : 'Unlocked'} ${amount}${denom} with ${validatorAddress} at height: ${height}, time: ${timestamp}`)
