@@ -18,7 +18,7 @@
     "generate": "ts-node ./src/index.ts --generate",
     "lint": "tslint -c tslint.json 'src/**/*.ts'",
     "lock-btc": "ts-node ./src/index.ts --btc --lock",
-    "lock-etc": "ts-node ./src/index.ts --eth --lock",
+    "lock-eth": "ts-node ./src/index.ts --eth --lock",
     "lock-atom": "ts-node ./src/index.ts --cosmos --lock",
     "start": "ts-node ./src/index.ts",
     "test": "ts-mocha ./test/*.spec.ts",

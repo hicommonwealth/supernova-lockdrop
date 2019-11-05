@@ -38,7 +38,7 @@ const ETH_KEY_PATH = process.env.ETH_KEY_PATH;
 const ETH_JSON_PASSWORD = process.env.ETH_JSON_PASSWORD;
 const ETH_JSON_VERSION = process.env.ETH_JSON_VERSION;
 // Infura API url
-const INFURA_PATH = process.env.INFURA_PATH;
+const INFURA_PATH = process.env.INFURA_PATH || 'http://127.0.0.1:8545';
 // Cosmos/Supernova
 const SUPERNOVA_ADDRESS = process.env.SUPERNOVA_ADDRESS;
 const TENDERMINT_URL = process.env.TENDERMINT_URL;
@@ -247,6 +247,9 @@ if (program.eth) {
         const supernovaAddress = (program.supernovaAddress) ? program.supernovaAddress : SUPERNOVA_ADDRESS;
 
         if (program.lock) {
+          if (typeof supernovaAddress === 'undefined') {
+            throw new Error('You must specify a supernova address using the flag --supernovaAddress <addr> or specifying it in your .env file');
+          }
           return await eth.lock(key, program.lock, lockdropContractAddress, supernovaAddress, infuraPath);
         } else if (program.unlock) {
           return await eth.unlock(key, lockdropContractAddress, infuraPath);
@@ -299,6 +302,9 @@ if (program.btc) {
       const result = await btc.createOrGetAccount(wallet, account);
       saveOutput(result);
     } else if (program.lock) {
+      if (typeof supernovaAddress === 'undefined') {
+        throw new Error('You must specify a supernova address using the flag --supernovaAddress <addr> or specifying it in your .env file');
+      }
       console.log(`Using bcoin wallet id - ${walletId}, account - ${account} to lock ${amountToFund} BTC`);
       await btc.lock(
         ipfsMultiaddr,
@@ -432,6 +438,7 @@ if (program.cosmos) {
       const genesis = await genesisResp.json();
       const chainId = genesis.result.genesis.chain_id;
       const denom = genesis.result.genesis.app_state.staking.params.bond_denom;
+      const supernovaAddress = (program.supernovaAddress) ? program.supernovaAddress : SUPERNOVA_ADDRESS;
 
       if (program.useGaia) {
         // TODO: accept a key path for gaiacli and feed in mnemonic to stream
@@ -475,6 +482,10 @@ if (program.cosmos) {
         const amount = '' + (program.lock || program.unlock);
         const validatorAddress = program.validator;
         if (program.lock) {
+          if (typeof supernovaAddress === 'undefined') {
+            throw new Error('You must specify a supernova address using the flag --supernovaAddress <addr> or specifying it in your .env file');
+          }
+
           msg = cosmos.MsgDelegate(cosmosAddress, { validatorAddress, amount, denom });
         } else {
           msg = cosmos.MsgUndelegate(cosmosAddress, { validatorAddress, amount, denom });

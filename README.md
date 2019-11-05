@@ -271,6 +271,12 @@ SUPERNOVA_ADDRESS=...
 BTC_BIP39_MNEMONIC_SEED="..."
 # Bitcoin network
 BTC_NETWORK_SETTING=regtest
+# Bcoin settings
+BCOIN_WALLET_ID=
+BCOIN_WALLET_ACCOUNT=
+BCOIN_WALLET_PASSPHRASE=
+BCOIN_NODE_ADDRESS=
+BCOIN_WALLET_NODE_ADDRESS=
 
 # IPFS configuration environment variables
 # Multiaddress to connect for storing data on timelocks
