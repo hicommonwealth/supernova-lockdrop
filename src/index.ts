@@ -495,7 +495,7 @@ if (program.cosmos) {
           msg = cosmos.MsgUndelegate(cosmosAddress, { validatorAddress, amount, denom });
         }
         // memo can be anything
-        const memo = program.lock ? JSON.stringify({ supernovaAddress: program.supernovaAddress }) : '';
+        const memo = program.lock ? JSON.stringify({ supernovaAddress }) : '';
         const gasEstimate = await msg.simulate({ memo });
         // TODO: add ledger support
         const signer = async (msgToSign: string) => {
