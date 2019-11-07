@@ -250,11 +250,14 @@ if (program.eth) {
           if (typeof supernovaAddress === 'undefined') {
             throw new Error('You must specify a supernova address using the flag --supernovaAddress <addr> or specifying it in your .env file');
           }
-          return await eth.lock(key, program.lock, lockdropContractAddress, supernovaAddress, infuraPath);
+          console.log(await eth.lock(key, program.lock, lockdropContractAddress, supernovaAddress, infuraPath));
+          process.exit(0);
         } else if (program.unlock) {
-          return await eth.unlock(key, lockdropContractAddress, infuraPath);
+          console.log(await eth.unlock(key, lockdropContractAddress, infuraPath));
+          process.exit(0);
         } else if (program.query) {
-          return await eth.getLocksForAddress(program.query, lockdropContractAddress, infuraPath);
+          console.log(await eth.getLocksForAddress(program.query, lockdropContractAddress, infuraPath));
+          process.exit(0);
         } else {
           console.log(error('invalid action'));
           process.exit(1);
@@ -319,7 +322,7 @@ if (program.btc) {
         program.debug
       );
       console.log(error(`A lock-tx.json file has been created in the project directory. Save this for future unlocking!`));
-      return;
+      process.exit(0);
     } else if (program.unlock) {
       await btc.redeem(
         network,
@@ -327,7 +330,7 @@ if (program.btc) {
         wallet,
         program.debug
       );
-      return;
+      process.exit(0);
     } else if (program.query) {
       let queryObj;
       if (validate(program.query)) {
@@ -337,7 +340,8 @@ if (program.btc) {
       } else {
         throw new Error('You must provide a valid Bitcoin address or transaction hash, both should be 32 bytes maximum');
       }
-      return await btc.getTxDataFromIPFS(queryObj, nodeClient, network, ipfsMultiaddr);
+      console.log(await btc.getTxDataFromIPFS(queryObj, nodeClient, network, ipfsMultiaddr));
+      process.exit(0);
     } else {
       console.log(error('invalid action'));
       process.exit(1);

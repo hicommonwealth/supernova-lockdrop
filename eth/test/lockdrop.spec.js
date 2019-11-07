@@ -1,7 +1,6 @@
 const Promise = require('bluebird');
 const utility = require('../helpers/util');
 const ldHelpers = require('../helpers/index');
-const { toWei, toBN, padRight } = web3.utils;
 
 const Lock = artifacts.require("./Lock.sol");
 const Lockdrop = artifacts.require("./Lockdrop.sol");
@@ -79,50 +78,16 @@ contract('Lockdrop-1', (accounts) => {
     }));
   });
 
-  it('should not allow one to lock after the lock start time', async function () {
+  it('should not allow one to lock after the lock end time', async function () {
     await lockdrop.lock(accounts[1], {
       from: accounts[1],
       value: web3.utils.toWei('1', 'ether'),
     });
 
-    utility.advanceTime(SECONDS_IN_DAY * 15, web3);
+    utility.advanceTime(SECONDS_IN_DAY * 365, web3);
     utility.assertRevert(lockdrop.lock(accounts[1], {
       from: accounts[1],
       value: web3.utils.toWei('1', 'ether'),
-    }));
-  });
-
-  it('should not allow one to lock up any different length than 3,6,12 months', async function () {
-    utility.assertRevert(lockdrop.lock(accounts[1], {
-      from: accounts[1],
-      value: web3.utils.toWei('1', 'ether'),
-    }));
-  });
-
-  it('should fail to withdraw funds if not enough gas is sent', async function () {
-    let time = await utility.getCurrentTimestamp(web3);
-    const newLockdrop = await Lockdrop.new(time);
-    await newLockdrop.lock(accounts[1], {
-      from: accounts[1],
-      value: web3.utils.toWei('1', 'ether'),
-    });
-
-    const balAfter = await utility.getBalance(accounts[1], web3);
-
-    const lockEvents = await ldHelpers.getLocks(newLockdrop, accounts[1]);
-    const lockStorages = await Promise.all(lockEvents.map(event => {
-      return ldHelpers.getLockStorage(web3, event.returnValues.lockAddr);
-    }));
-    let unlockTime = lockStorages[0].unlockTime;
-    const lockContract = await Lock.at(lockEvents[0].returnValues.lockAddr);
-
-    time = await utility.getCurrentTimestamp(web3);
-    await utility.advanceTime(unlockTime - time + SECONDS_IN_DAY, web3);
-
-    utility.assertRevert(lockContract.sendTransaction({
-      from: accounts[1],
-      value: 0,
-      gas: 1,
     }));
   });
 });
