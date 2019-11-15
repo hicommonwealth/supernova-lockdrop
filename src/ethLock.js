@@ -5,7 +5,7 @@ import jswallet from 'ethereumjs-wallet';
 import fs from 'fs';
 
 const { toBN, hexToNumber } = utils;
-export const LOCKDROP_JSON = JSON.parse(fs.readFileSync('./eth/build/contracts/Lockdrop.json').toString());
+//export const LOCKDROP_JSON = JSON.parse(fs.readFileSync('./eth/build/contracts/Lockdrop.json').toString());
 export const LOCALHOST_URL = 'http://localhost:8545';
 
 export function getWeb3(remoteUrl, key) {

@@ -26,7 +26,7 @@
     "test-btc": "ts-mocha ./test/btc*"
   },
   "dependencies": {
-    "@lunie/cosmos-api": "hicommonwealth/cosmos-api#d09a1c397c235f0fb3ff42a85dc22b21ac933d2f",
+    "@lunie/cosmos-api": "hicommonwealth/cosmos-api#develop",
     "@lunie/cosmos-keys": "^0.0.11",
     "@types/filesystem": "^0.0.29",
     "bclient": "^0.1.7",
@@ -51,6 +51,7 @@
     "node-fetch": "^2.6.0",
     "regtest-client": "^0.2.0",
     "secp256k1": "^3.7.1",
+    "throttled-queue": "^1.0.7",
     "truffle-hdwallet-provider": "^1.0.17",
     "ts-node": "^7.0.1",
     "web3": "^1.2.1"
