@@ -115,7 +115,7 @@ const getCosmosWalletFromEnvVar = () => {
   return wallet;
 }
 
-const cosmosRestQueue = throttledQueue(1, 1000);
+const cosmosRestQueue = throttledQueue(1, 200);
 const cosmosRestQuery = (path: string, args = {}, retries = 4, page = 1, limit = 30): Promise<any> => {
   return new Promise((resolve, reject) => {
     cosmosRestQueue(async () => {
@@ -124,7 +124,6 @@ const cosmosRestQuery = (path: string, args = {}, retries = 4, page = 1, limit =
           .map((k) => encodeURIComponent(k) + '=' + encodeURIComponent(params[k]))
           .join('&');
       const url = `${COSMOS_REST_URL}${path}?` + paramString;
-      console.log(url);
       const response = await fetch(url);
       if (response.status !== 200) {
         if (retries === 0) {
@@ -488,7 +487,7 @@ if (program.cosmos) {
       // average tokens at all points to obtain effective lock value
       const effectiveLockValue = tokensAtPoints.reduce((avg, value) => {
         return avg + (value / nQueryPoints);
-      });
+      }, 0);
       console.log(`\nEffective delegation between ${startHeight} and ${endHeight}: ${effectiveLockValue}${bond_denom}`);
     } else {
       if (!program.validator) {
