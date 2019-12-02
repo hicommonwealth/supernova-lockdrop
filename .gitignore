@@ -64,4 +64,3 @@ redeem-info.json
 # next.js build output
 .next
 dist
-eth/build
