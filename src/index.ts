@@ -17,6 +17,7 @@ import * as secp256k1 from 'secp256k1';
 import * as CryptoJS from 'crypto-js';
 const bip39 = require('bip39');
 import { default as CosmosApi } from '@lunie/cosmos-api';
+import throttledQueue from 'throttled-queue';
 
 // CLI Constants
 const LOCK_LENGTH = 182; // 182 days
@@ -114,16 +115,38 @@ const getCosmosWalletFromEnvVar = () => {
   return wallet;
 }
 
-const printDelegations = (delegator, delegations) => {
-  console.log(`${delegator} has ${delegations.length} delegation(s):`);
-  for (const { shares, validator_address } of delegations) {
-    console.log(`  ${+shares} shares of ${validator_address}`);
-  }
-};
-
-const printDelegation = (delegation) => {
-  console.log(`${delegation.delegator_address} has ${+delegation.shares} shares of ${delegation.validator_address}`);
-};
+const cosmosRestQueue = throttledQueue(1, 200);
+const cosmosRestQuery = (path: string, args = {}, retries = 4, page = 1, limit = 30): Promise<any> => {
+  return new Promise((resolve, reject) => {
+    cosmosRestQueue(async () => {
+      const params = Object.assign({ page, limit }, args);
+      const paramString = Object.keys(params)
+          .map((k) => encodeURIComponent(k) + '=' + encodeURIComponent(params[k]))
+          .join('&');
+      const url = `${COSMOS_REST_URL}${path}?` + paramString;
+      const response = await fetch(url);
+      if (response.status !== 200) {
+        if (retries === 0) {
+          reject(`url ${url} failed with status ${response.status}`);
+        } else {
+          resolve(cosmosRestQuery(path, args, retries - 1, page, limit));
+        }
+      }
+  
+      let data = await response.json();
+      // remove height wrappers
+      if (data.height !== undefined && data.result !== undefined) {
+        data = data.result;
+      }
+      if (Array.isArray(data) && data.length === limit) {
+        const nextResults = await this.restQuery(path, args, page + 1);
+        resolve(data.concat(nextResults));
+      } else {
+        resolve(data);
+      }
+    })
+  });
+}
 
 const printNoKeyError = (customMsg) => {
   console.log('');
@@ -158,8 +181,11 @@ program.version('1.0.0')
   // additional cosmos/supernova flags
   .option('-m, --recoverMnemonic <mnemonic>', 'An optional mnemonic to generate a Cosmos key file with.')
   .option('-k, --keyName <name>', 'The name of your cosmos key, registered with gaiacli (defaults to mnemonic from COSMOS_KEY_PATH)')
-  .option('--validator <address>', 'A cosmos validator, required for lock/unlock (omit in query to fetch all delegations)')
+  .option('--validator <address>', 'A cosmos validator, required for lock/unlock')
   .option('--useGaia', 'Use the Gaia CLI to execute the command (for generating keys)')
+  .option('--startHeight <height>', 'The block height when the lock period starts, required for --query')
+  .option('--endHeight <height>', 'The block height when the lock period ends, required for --query')
+  .option('--nSamples <samples>', 'Number of times to sample within lock period (default: 5)')
 
   // misc flags
   .option('--supernovaAddress <address>', 'Input a supernova address to lock with')
@@ -396,38 +422,74 @@ if (program.cosmos) {
     } else if (program.query) {
       let delegatorAddress: string;
       if (typeof program.query !== 'boolean') {
-        // TODO: what if they provide a TX hash?
+        // TODO: what if they provide a TX hash? we should error
         delegatorAddress = program.query;
       } else {
         const { cosmosAddress } = getCosmosWalletFromEnvVar();
         delegatorAddress = cosmosAddress;
       }
 
-      const validatorAddress = program.validator;
+      // We could theoretically use gaia, but it lacks the /staking/delegators/XXX/validators query (!!!)
       if (program.useGaia) {
-        if (validatorAddress) {
-          // query delegations for a single validator
-          const cmd = `${GAIACLI_PATH} query staking delegation ${delegatorAddress} ${validatorAddress} ` +
-          `--node ${TENDERMINT_URL} --trust-node`
-          const delegation = gaiaExec(cmd, quiet);
-          printDelegation(delegation);
-        } else {
-          // query all delegations
-          const cmd = `${GAIACLI_PATH} query staking delegations ${delegatorAddress} ` +
-            `--node ${TENDERMINT_URL} --trust-node`
-          const delegations = gaiaExec(cmd, quiet);
-          printDelegations(delegatorAddress, delegations.map((d) => d.delegation));
-        }
-      } else {
-        const cosmos = new CosmosApi(COSMOS_REST_URL);
-        if (validatorAddress) {
-          const delegation = await cosmos.get.delegation(delegatorAddress, validatorAddress);
-          printDelegation(delegation);
-        } else {
-          const delegations = await cosmos.get.delegations(delegatorAddress);
-          printDelegations(delegatorAddress, delegations);
-        }
+        console.log(error('cannot perform delegation query with gaiacli'));
+        process.exit(1);
       }
+
+      if (!program.startHeight || !program.endHeight) {
+        console.log(error('must provide start and end height for cosmos query'));
+        process.exit(1);
+      }
+      const startHeight = +program.startHeight;
+      const endHeight = +program.endHeight;
+
+      const { block_meta: { header: { height } } } = await cosmosRestQuery(`/blocks/latest`);
+      if (endHeight > +height) {
+        console.log(error('query endHeight cannot be in future'));
+        process.exit(1)
+      }
+
+      // generate the N heights where we plan to query
+      const nQueryPoints = (+program.nSamples) || 5;
+      const queryPeriod = Math.floor((endHeight - startHeight) / (nQueryPoints - 1));
+      const queryHeights: number[] = [...new Array(nQueryPoints)]
+        .map((dummy, idx) => startHeight + (idx * queryPeriod));
+
+      const { unbonding_time, bond_denom } = await cosmosRestQuery(`/staking/parameters`);
+      // unbonding_time is in ns, so slice off the last 9 digits to get it in seconds
+      const unbondingTimeSeconds = +(unbonding_time.slice(0, unbonding_time.length - 8));
+      // assuming 5 second block times
+      const unbondingBlocks = unbondingTimeSeconds / 5;
+      if (queryPeriod > unbondingBlocks) {
+        console.log(`query period: ${queryPeriod}, unbonding blocks: ${unbondingBlocks}`);
+        console.log(error('must sample more blocks to avoid missing unbonding events'));
+        process.exit(1);
+      }
+      
+      // for each height, fetch delegations at the time + validator share conversions
+      if (!quiet) console.log(`Querying for ${nQueryPoints} delegations between ${startHeight} and ${endHeight}!`);
+      const tokensAtPoints = await Promise.all(queryHeights.map(async (height) => {
+        const delegations: any[] = await cosmosRestQuery(`/staking/delegators/${delegatorAddress}/delegations`, { height });
+        const validators: any[] = await cosmosRestQuery(`/staking/delegators/${delegatorAddress}/validators`, { height });
+
+        // construct conversion ratios for validator shares to tokens
+        const validatorStakeRatios = {};
+        for (const v of validators) {
+          validatorStakeRatios[v.operator_address] = (+v.tokens) / (+v.delegator_shares);
+        }
+
+        // convert delegations to their values in tokens
+        const delegatorValue: number = delegations.reduce((sum, { validator_address, shares }) => {
+          return sum + (validatorStakeRatios[validator_address] * (+shares));
+        }, 0);
+        if (!quiet) console.log(`  Found total delegation of ${delegatorValue}${bond_denom} at height ${height}.`);
+        return delegatorValue;
+      }));
+
+      // average tokens at all points to obtain effective lock value
+      const effectiveLockValue = tokensAtPoints.reduce((avg, value) => {
+        return avg + (value / nQueryPoints);
+      }, 0);
+      console.log(`\nEffective delegation between ${startHeight} and ${endHeight}: ${effectiveLockValue}${bond_denom}`);
     } else {
       if (!program.validator) {
         console.log(error('must provide --validator to lock or unlock on cosmos'));

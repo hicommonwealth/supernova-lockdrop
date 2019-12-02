@@ -101,9 +101,9 @@
   resolved "https://registry.yarnpkg.com/@istanbuljs/nyc-config-typescript/-/nyc-config-typescript-0.1.3.tgz#944d15b3ebdb71f963a628daffaa25ade981bb86"
   integrity sha512-EzRFg92bRSD1W/zeuNkeGwph0nkWf+pP2l/lYW4/5hav7RjKKBN5kV1Ix7Tvi0CMu3pC4Wi/U7rNisiJMR3ORg==
 
-"@lunie/cosmos-api@hicommonwealth/cosmos-api#d09a1c397c235f0fb3ff42a85dc22b21ac933d2f":
+"@lunie/cosmos-api@hicommonwealth/cosmos-api#develop":
   version "0.2.1"
-  resolved "https://codeload.github.com/hicommonwealth/cosmos-api/tar.gz/d09a1c397c235f0fb3ff42a85dc22b21ac933d2f"
+  resolved "https://codeload.github.com/hicommonwealth/cosmos-api/tar.gz/c03993c1783aa7a1ff73b8043d29cb2d6356cbfb"
   dependencies:
     "@babel/runtime" "^7.5.4"
     axios "^0.19.0"
@@ -5075,6 +5075,11 @@ throat@^3.0.0:
   version "3.2.0"
   resolved "https://registry.yarnpkg.com/throat/-/throat-3.2.0.tgz#50cb0670edbc40237b9e347d7e1f88e4620af836"
   integrity sha512-/EY8VpvlqJ+sFtLPeOgc8Pl7kQVOWv0woD87KTXVHPIAE842FGT+rokxIhe8xIUP1cfgrkt0as0vDLjDiMtr8w==
+
+throttled-queue@^1.0.7:
+  version "1.0.7"
+  resolved "https://registry.yarnpkg.com/throttled-queue/-/throttled-queue-1.0.7.tgz#da7ed6702941993044a1c5fd2ac3a58582dd2977"
+  integrity sha512-/HT49S7m+NvdyJMoMRzIYlawKjeHn8jEc8TZaGmFi5IBu09hIiU/QoP1zcrB9X2qsVC11PgfRfqd8zEQs7PlEA==
 
 through2@^3.0.0, through2@^3.0.1:
   version "3.0.1"
