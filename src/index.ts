@@ -185,6 +185,7 @@ program.version('1.0.0')
   .option('--useGaia', 'Use the Gaia CLI to execute the command (for generating keys)')
   .option('--startHeight <height>', 'The block height when the lock period starts, required for --query')
   .option('--endHeight <height>', 'The block height when the lock period ends, required for --query')
+  .option('--nSamples <samples>', 'Number of times to sample within lock period (default: 5)')
 
   // misc flags
   .option('--supernovaAddress <address>', 'Input a supernova address to lock with')
@@ -448,7 +449,7 @@ if (program.cosmos) {
       }
 
       // generate the N heights where we plan to query
-      const nQueryPoints = 5;
+      const nQueryPoints = (+program.nSamples) || 5;
       const queryPeriod = Math.floor((endHeight - startHeight) / (nQueryPoints - 1));
       const queryHeights: number[] = [...new Array(nQueryPoints)]
         .map((dummy, idx) => startHeight + (idx * queryPeriod));
