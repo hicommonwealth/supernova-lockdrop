@@ -48,7 +48,7 @@
     "isomorphic-fetch": "^2.2.1",
     "js-yaml": "^3.13.1",
     "multihashes": "^0.4.15",
-    "node-fetch": "^2.6.0",
+    "node-fetch": "^2.6.1",
     "regtest-client": "^0.2.0",
     "secp256k1": "^3.7.1",
     "throttled-queue": "^1.0.7",
